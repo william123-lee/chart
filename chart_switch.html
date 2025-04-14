@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!--<title>BTC Chart - Lightweight Version</title>-->
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js" async></script>
+    <script src="https://cdn.jsdelivr.net/npm/technicalindicators@3.0.1/dist/browser/technicalindicators.min.js" async></script>
+    <style>
+        /* body{
+            background-color: #121212;
+            color: #ffffff;
+        } */
+        #chart-container {
+            width: 100%;
+            height: 650px;
+            position: relative;
+            /*background-color: #1e1e1e;*/
+            /*margin-bottom: 20px;*/
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            color:#094d91;
+        }
+        #chart-label {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        #smaLegend {
+            position: absolute;
+            right: 20px;
+            top: 50px;
+            width: 100px;
+            
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); 
+            text-align: left;
+        }
+        .axis-label {
+            position: absolute;
+            font-size: 14px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        #y-axis-left-label {
+            left: 5px;
+            top: 50%;
+            transform: rotate(-90deg);
+            transform-origin: left;
+        }
+
+        #y-axis-right-label {
+            right: 5px;
+            top: 50%;
+            transform: rotate(90deg);
+            transform-origin: right;
+        }
+
+        #x-axis-label {
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+
+
+        
+    </style>
+</head>
+<body>
+    <h2>BTC Chart</h2>
+    <h3 id="chart-label">Current Chart: Daily (1D)</h3> 
+    <!-- <label>
+        <input type="checkbox" id="sma-checkbox"> SMA-50 (Blue Line)
+    </label> -->
+    <!-- <label for="sma-select">Choose SMA:</label> -->
+    <!-- <select id="sma-select">
+        <option value="">None</option>
+        <option value="20">SMA-20 Days</option>
+        <option value="50">SMA-50 Days</option>
+        <option value="200">SMA-200 Days</option>
+        <option value="350">SMA-50 Weeks</option>  
+        <option value="1400">SMA-200 Weeks</option> 
+    </select> -->
+    <div id="smaLegend"></div>
+    <label for="ema-select">Choose EMA:</label>
+    <select id="ema-select">
+        <option value="">None</option>
+        <option value="20">EMA-20 Days</option>
+        <option value="50">EMA-50 Days</option>
+        <option value="200">EMA-200 Days</option>
+    </select>
+    <label>
+        <input type="checkbox" id="bb-select"> Bollinger Bands
+    </label>
+    <label>
+        <input type="checkbox" id="rsi-checkbox"> RSI
+    </label>
+    <label>
+        <input type="checkbox" id="sent-checkbox"> Sentiment Analysis
+    </label>
+    <label id="fibonacci-options"></label>
+    <label id="sma-options"></label>
+    <div id="chart-container">
+        <div id="x-axis-label" class="axis-label">Time</div>
+    </div>
+    
+    <div id="rsi-container">
+        Relative Strength Index (RSI)
+    </div>
+    <button onclick="loadChart('1d')">Daily Chart</button>
+    <button onclick="loadChart('4h')">4-Hour Chart</button>
+    <button onclick="loadChart('1w')">Weekly Chart</button>
+    
+    <script>
+        let chart, chartData = [], candleSeries,  bollingerUpperSeries = null, bollingerMiddleSeries = null, bollingerLowerSeries = null, smaLines = {},
+        fibonacciLines = {}, rsiSeries, rsiChart = null, rsiDashedLines, m2Series, maSeries, emaSeries, sentimentSeries, baseSentimentSeries,
+        topSentimentSeries, lineSeries, stepSeries, supertrendSeries = [], supertrendDownSeries;
+        // let markers;
+        
+        //HERE is to fetch the social domaninance from santiment
+        //then overlay it with the btc chart
+
+        async function fetchMacroData() {
+            const API_URL = "http://localhost:3000/truf-news"; // Fetch from local server
+
+            try {
+                let response = await fetch(API_URL);
+                let data = await response.json();
+                console.log(data);
+            } catch (error) {
+                console.error("Error fetching Macro data:", error);
+            }
+        }
+
+
+
+        function addSupertrend(data){
+            
+            const period = 3; // average true range
+            const multiplier = 3; // adjust sensitivity
+            let atrValue = 0;
+
+            // Step 1: Calculate True Range (TR) and Average True Range (ATR)
+            const tr = [];
+            for (let i = 1; i < data.length; i++) {
+                const currentHigh = data[i].high;
+                const currentLow = data[i].low;
+                const prevClose = data[i - 1].close;
+
+                const highLow = currentHigh - currentLow;
+                const highClose = Math.abs(currentHigh - prevClose);
+                const lowClose = Math.abs(currentLow - prevClose);
+                const trueRange = Math.max(highLow, highClose, lowClose);
+                tr.push(trueRange);
+            }
+
+            // Step 2: Calculate ATR
+            const atr = [];
+            let sum = tr.slice(0, period).reduce((acc, val) => acc + val, 0);
+            atr.push(sum / period);
+
+            for (let i = period; i < tr.length; i++) {
+                const prevATR = atr[atr.length - 1];
+                const currentATR = (prevATR * (period - 1) + tr[i]) / period;
+                atr.push(currentATR);
+            }
+
+            // Step 3: Calculate Upper and Lower Bands
+            let baseUp = [];
+            let baseDown = [];
+            for (let i = 0; i < period - 1; i++) {
+                baseUp.push(NaN);
+                baseDown.push(NaN);
+            }
+
+            for (let i = period - 1; i < data.length; i++) {
+                const atrIndex = i - (period - 1); // shift ATR into alignment
+                const hl2 = (data[i].high + data[i].low) / 2;
+                const expectedATR = atr[atrIndex];
+
+                if (expectedATR !== undefined && !isNaN(expectedATR)) {
+                    const upper = hl2 + (multiplier * expectedATR);
+                    const lower = hl2 - (multiplier * expectedATR);
+                    console.log(`i=${i}, atrIndex=${atrIndex}, HL2=${hl2.toFixed(2)}, ATR=${expectedATR.toFixed(2)}, baseUp=${upper.toFixed(2)}, baseDown=${lower.toFixed(2)}`);
+                }
+                if (atr[atrIndex] !== undefined && !isNaN(atr[atrIndex])) {
+                    baseUp.push(hl2 + (multiplier * atr[atrIndex]));
+                    baseDown.push(hl2 - (multiplier * atr[atrIndex]));
+                } else {
+                    baseUp.push(NaN);
+                    baseDown.push(NaN);
+                }
+            }
+            console.log("First ATR should align with data at i = period - 1");
+            console.log("data index:", period - 1, "=> data[period-1].hl2 =", (data[period - 1].high + data[period - 1].low) / 2);
+            console.log("atr[0] =", atr[0]);
+
+            // Step 4: Calculate Final Upper and Lower Bands (fiUp, fiDown)
+            let fiUp = [];
+            let fiDown = [];
+            let prevFiUp = 0;
+            let prevFiDown = 0;
+            for (let i = 0; i < data.length; i++) {
+                if (isNaN(baseUp[i])) {
+                    fiUp.push(NaN);
+                } else if (i === 0) {
+                    fiUp.push(baseUp[i]);
+                    prevFiUp = baseUp[i];
+                } else {
+                    fiUp.push(baseUp[i] < prevFiUp || data[i - 1].close > prevFiUp ? baseUp[i] : prevFiUp);
+                    prevFiUp = fiUp[i];
+                }
+
+                if (isNaN(baseDown[i])) {
+                    fiDown.push(NaN);
+                } else if (i === 0) {
+                    fiDown.push(baseDown[i]);
+                    prevFiDown = baseDown[i];
+                } else {
+                    fiDown.push(baseDown[i] > prevFiDown || data[i - 1].close < prevFiDown ? baseDown[i] : prevFiDown);
+                    prevFiDown = fiDown[i];
+                }
+            }
+
+            // Step 5: Calculate Supertrend
+            let st = [];
+            let prevSt = NaN;
+
+            for (let i = 0; i < data.length; i++) {
+                if (i < period) {
+                    st.push(NaN);
+                    continue;
+                }
+
+                let nowSt = 0;
+
+                // If previous supertrend is not set
+                if (isNaN(prevSt)) {
+                    nowSt = data[i].close <= fiUp[i] ? fiUp[i] : fiDown[i];
+                } else if (prevSt === fiUp[i - 1] && data[i].close <= fiUp[i]) {
+                    nowSt = fiUp[i]; // Continue uptrend if close is below fiUp
+                } else if (prevSt === fiUp[i - 1] && data[i].close > fiUp[i]) {
+                    nowSt = fiDown[i]; // Switch to downtrend if close is above fiUp
+                } else if (prevSt === fiDown[i - 1] && data[i].close >= fiDown[i]) {
+                    nowSt = fiDown[i]; // Continue downtrend if close is above fiDown
+                } else if (prevSt === fiDown[i - 1] && data[i].close < fiDown[i]) {
+                    nowSt = fiUp[i]; // Switch to uptrend if close is below fiDown
+                }
+
+                st.push(nowSt);
+                prevSt = nowSt;
+            }
+
+
+            // Step 6: Final Output and Alignment Check
+            let up = [];
+            let down = [];
+            let indexUp = [];
+            let indexDown = [];
+            for (let i = 0; i < data.length; i++) {
+                if (isNaN(st[i])) {
+                    up.push(st[i]);
+                    down.push(st[i]);
+                    continue; // Skip further logic for NaN st[i]
+                }
+
+                if (data[i].close < st[i]) {
+                    // Downtrend
+                    down.push(st[i]);
+                    up.push(NaN);
+                    indexDown.push(i);
+                } else {
+                    // Uptrend
+                    down.push(NaN);
+                    up.push(st[i]);
+                    indexUp.push(i);
+                }
+
+                console.log(`i=${i}, Close=${data[i].close}, fiUp=${fiUp[i]}, fiDown=${fiDown[i]}, st=${st[i]}, up=${up[i]}, down=${down[i]}`);
+            }
+
+            console.log(data.length, atr.length, baseUp.length, fiUp.length, st.length);
+
+
+            // console.log(up);
+            // console.log(down);
+            // // Step 3: Calculate Supertrend
+            // let supertrend = [];
+            // let colors = [];
+            // supertrend.push(upperBand[0]); // The first supertrend is the first upper band value
+            // colors.push('green');
+            // // console.log(supertrend);
+            // for (let i = 1; i < data.length; i++) {
+            //     const currentClose = data[i].close;
+            //     const previousSupertrend = supertrend[i - 1];
+
+            //     if (currentClose > previousSupertrend) {
+            //         // If the close is above the previous Supertrend, set to upper band
+            //         supertrend.push(Math.max(upperBand[i], previousSupertrend));
+            //         colors.push('green');  // Bullish, use green
+            //     } else {
+            //         // If the close is below the previous Supertrend, set to lower band
+            //         supertrend.push(Math.min(lowerBand[i], previousSupertrend));
+            //         colors.push('red');  // Bearish, use red
+            //     }
+            // }
+
+            // supertrendSeries = chart.addLineSeries({
+            //     color: 'red', // Default color (it will be updated dynamically)
+            //     lineWidth: 2
+            // });
+            
+            // const supertrendData = supertrend.map((st, index) => {
+            //     return {
+            //         time: data[index].time,  // Human-readable date
+            //         value: st                      // Supertrend value
+            //     };
+            // });
+            // console.log(supertrendData);
+            // supertrendSeries.setData(supertrendData);
+
+            let isUptrend = null;
+            let currentSegment = [];
+            const supertrendSegments = [];
+
+            // Loop through your data to build trend segments
+            for (let i = 0; i < data.length; i++) {
+                const time = data[i].time;
+                const upValue = up[i];
+                const downValue = down[i];
+
+                if (!isNaN(upValue)) {
+                    if (isUptrend !== true) {
+                        if (currentSegment.length) {
+                            supertrendSegments.push({
+                                data: currentSegment,
+                                color: isUptrend === false ? 'red' : 'gray'
+                            });
+                        }
+                        currentSegment = [];
+                        isUptrend = true;
+                    }
+                    currentSegment.push({ time: time, value: upValue });
+                } else if (!isNaN(downValue)) {
+                    if (isUptrend !== false) {
+                        if (currentSegment.length) {
+                            supertrendSegments.push({
+                                data: currentSegment,
+                                color: isUptrend === true ? 'green' : 'gray'
+                            });
+                        }
+                        currentSegment = [];
+                        isUptrend = false;
+                    }
+                    currentSegment.push({ time: time, value: downValue });
+                } else {
+                    // Break line if no valid value
+                    if (currentSegment.length) {
+                        supertrendSegments.push({
+                            data: currentSegment,
+                            color: isUptrend ? 'green' : 'red'
+                        });
+                        currentSegment = [];
+                    }
+                    isUptrend = null;
+                }
+            }
+
+            // Push any remaining segment
+            if (currentSegment.length) {
+                supertrendSegments.push({
+                    data: currentSegment,
+                    color: isUptrend ? 'green' : 'red'
+                });
+            }
+
+            // Now create line series for each segment
+            // supertrendSegments.forEach(segment => {
+            //     let lineSeries = chart.addLineSeries({
+            //         color: segment.color,
+            //         lineWidth: 2,
+            //         priceLineVisible: false,
+            //         lastValueVisible: false
+            //     });
+            //     lineSeries.setData(segment.data);
+            // });
+
+            return supertrendSegments;
+
+
+        }
+      
+
+        function SuperTrend(data, period, multiplier) {
+            // atr
+            var atr = talib.ATR(r, period)
+
+            // baseUp , baseDown
+            var baseUp = []
+            var baseDown = []
+            for (var i = 0; i < r.length; i++) {
+                if (isNaN(atr[i])) {
+                    baseUp.push(NaN)
+                    baseDown.push(NaN)
+                    continue
+                }
+                baseUp.push((r[i].High + r[i].Low) / 2 + multiplier * atr[i])
+                baseDown.push((r[i].High + r[i].Low) / 2 - multiplier * atr[i])
+            }
+
+            // fiUp , fiDown
+            var fiUp = []
+            var fiDown = []
+            var prevFiUp = 0
+            var prevFiDown = 0
+            for (var i = 0; i < r.length; i++) {
+                if (isNaN(baseUp[i])) {
+                    fiUp.push(NaN)
+                } else {
+                    fiUp.push(baseUp[i] < prevFiUp || r[i - 1].Close > prevFiUp ? baseUp[i] : prevFiUp)
+                    prevFiUp = fiUp[i]
+                }
+
+                if (isNaN(baseDown[i])) {
+                    fiDown.push(NaN)
+                } else {
+                    fiDown.push(baseDown[i] > prevFiDown || r[i - 1].Close < prevFiDown ? baseDown[i] : prevFiDown)
+                    prevFiDown = fiDown[i]
+                }
+            }
+
+            var st = []
+            var prevSt = NaN
+            for (var i = 0; i < r.length; i++) {
+                if (i < period) {
+                    st.push(NaN)
+                    continue
+                }
+
+                var nowSt = 0
+                if (((isNaN(prevSt) && isNaN(fiUp[i - 1])) || prevSt == fiUp[i - 1]) && r[i].Close <= fiUp[i]) {
+                    nowSt = fiUp[i]
+                } else if (((isNaN(prevSt) && isNaN(fiUp[i - 1])) || prevSt == fiUp[i - 1]) && r[i].Close > fiUp[i]) {
+                    nowSt = fiDown[i]
+                } else if (((isNaN(prevSt) && isNaN(fiDown[i - 1])) || prevSt == fiDown[i - 1]) && r[i].Close >= fiDown[i]) {
+                    nowSt = fiDown[i]
+                } else if (((isNaN(prevSt) && isNaN(fiDown[i - 1])) || prevSt == fiDown[i - 1]) && r[i].Close < fiDown[i]) {
+                    nowSt = fiUp[i]
+                }
+
+                st.push(nowSt)
+                prevSt = st[i]
+            }
+
+            var up = []
+            var down = []
+            for (var i = 0; i < r.length; i++) {
+                if (isNaN(st[i])) {
+                    up.push(st[i])
+                    down.push(st[i])
+                }
+
+                if (r[i].Close < st[i]) {
+                    down.push(st[i])
+                    up.push(NaN)
+                } else {
+                    down.push(NaN)
+                    up.push(st[i])
+                }
+            }
+
+            return [up, down]
+        }
+
+        //HERE is to fetch the sentiment data from santiment
+        // calculate the sentiment ratio
+        function fetchMaxSentData(timeframe){
+            const sentNeg = JSON.parse(localStorage.getItem('sentNeg'));
+            const sentPos = JSON.parse(localStorage.getItem('sentPos'));
+            // console.log(sentNeg);
+            // console.log(sentPos);
+            const combinedSentimentData = [];
+            sentPos.sentiment_positive.forEach((posItem, index) => {
+                const negItem = sentNeg.sentiment_negative[index];
+                console.log(posItem.value, negItem.value)
+                // Combine the positive and negative sentiment data into one object
+                if (posItem.datetime === negItem?.datetime){
+                    const sentimentRatio = negItem.value !== 0 ? posItem.value / negItem.value : null;
+                    if(sentimentRatio != null){
+                        combinedSentimentData.push({
+                        datetime: posItem.datetime, // Date from the positive sentiment data
+                        value: sentimentRatio, // Positive sentiment value
+                       });
+                    }
+                    // if(sentimentRatio<1){
+                    //     console.log(sentimentRatio);
+                    // }
+                }
+                    
+            });
+
+            const stepData1 = combinedSentimentData.map(item => ({
+                time: new Date(item.datetime).getTime() / 1000, // Convert datetime to Unix timestamp (seconds)
+                value: item.value
+            }));
+
+            
+            const stepData = [];
+            for (let i = 0; i < combinedSentimentData.length; i++) {
+                stepData.push({
+                    time: new Date(combinedSentimentData[i].datetime).getTime() / 1000,
+                    value: combinedSentimentData[i].value
+                });
+
+                if (i < combinedSentimentData.length - 1) {
+                    stepData.push({
+                        time: new Date(combinedSentimentData[i + 1].datetime).getTime() / 1000,
+                        value: combinedSentimentData[i].value
+                    });
+                }
+            }
+            
+            stepSeries = chart.addLineSeries({
+                priceScaleId: 'left',
+                // crosshairMarkerVisible: true,
+                color: "#b08d04",
+                lineWidth: 1,
+                zIndex: "2000"
+            });
+
+            
+           
+            console.log("Line 175");
+            stepSeries.setData(stepData1);
+            
+        }
+
+        async function fetchSentimentData() {
+            try {
+                const combinedSentimentData = [];
+                // const response = await fetch('http://localhost:3000/sentiment-data');
+                // const data = await response.json();
+                // localStorage.setItem('sentNeg', JSON.stringify(data));
+                //sentNeg = interval-1d
+                //sentNegMax = aggregation-MAX
+                const sentNeg = JSON.parse(localStorage.getItem('sentNeg'));
+                const sentPos = JSON.parse(localStorage.getItem('sentPos'));
+                if (sentPos && Array.isArray(sentPos.sentiment_positive)) {
+                    // Loop through the array to extract the 'value' for each item
+                    sentPos.sentiment_positive.forEach((posItem, index) => {
+                        const negItem = sentNeg.sentiment_negative[index];
+                        
+                        // Combine the positive and negative sentiment data into one object
+                        if (posItem.datetime === negItem?.datetime){
+                            combinedSentimentData.push({
+                                datetime: posItem.datetime, // Date from the positive sentiment data
+                                sentimentPositive: posItem.value, // Positive sentiment value
+                                sentimentNegative: negItem ? negItem.value : 0 // Negative sentiment value, with 0 as fallback
+                            });
+                        }
+                        // console.log(posItem.datetime, posItem.value, negItem.value);
+                    });
+                    // console.log(combinedSentimentData);
+                    drawSentiment(combinedSentimentData);
+                } else {
+                    console.log("No valid sentiment data found.");
+                }
+                // // Add sentiment data to the chart
+                // sentimentSeries.setData(sentimentData);
+                // if(sentimentSeries){
+                //     // console.log("Im here");
+                //     let latest = sentimentData[sentimentData.length - 1];
+                //     sentimentSeries.setMarkers([
+                //         {
+                //             time: latest.time,  // Ensure this matches the format in setData()
+                //             position: 'aboveBar', // Position marker above the data point
+                //             color: '#1E90FF',     // Marker color
+                //             shape: 'arrowDown',   // Shape type
+                //             text: `Social Volume: ${latest.value}`, // Display the value
+                //             size: 2,
+                //             textFontSize: 40
+                //         }
+                //     ]);
+                // }
+
+            } catch (error) {
+                console.error('Error fetching sentiment data:', error);
+            }
+        }
+
+        function toggleSentimentLine() {
+            const sentimentCheckbox = document.getElementById('sent-checkbox');
+            if (sentimentCheckbox.checked) {
+                // If the checkbox is checked, draw the sentiment line
+                fetchSentimentData();
+            } else {
+                // If the checkbox is unchecked, remove the sentiment line
+                removeSentimentLine();
+            }
+        }
+       
+        function drawSentiment(sentimentData) {
+            const sentimentBars = [];
+
+            sentimentData.forEach(item => {
+                const time = item.datetime;
+
+                const positive = item.sentimentPositive;
+                const negative = item.sentimentNegative;
+
+                const totalVolume = positive + negative;
+
+                const isPositiveDominate = positive > negative;
+                const color = isPositiveDominate 
+                    ? 'rgba(75, 192, 192, 0.8)'    // Green for bullish
+                    : 'rgba(255, 99, 132, 0.8)';   // Red for bearish
+
+                if(positive==negative){
+                    console.log("Yes");
+                }
+                sentimentBars.push({
+                    time,
+                    value: totalVolume,
+                    color
+                });
+            });
+            sentimentSeries = chart.addHistogramSeries({
+                lineWidth: 2,
+                priceScaleId: 'left'  // You can use the left axis, or create a separate axis for sentiment
+            });
+            // sentimentSeries.applyOptions({
+            //     priceScaleId: ''
+            // });
+            // console.log(sentimentSeries);
+            sentimentSeries.applyOptions({
+                priceScaleId: '' // This effectively removes the Y-axis for this series
+            });
+            sentimentSeries.setData(sentimentBars);
+            // console.log(sentimentSeries);
+        }
+
+        function removeSentimentLine() {
+            if (sentimentSeries) {
+                // Remove the sentiment line series if it exists
+                chart.removeSeries(sentimentSeries);
+                sentimentSeries = null;
+            }
+        }
+        //HERE is to fetch the federal fund rate to determine whether at that day spikes
+        //now didn't use it
+        async function fetchEvent(chartData) {
+            const API_URL = "http://localhost:3000/event-data"; // Fetch from local server
+
+            try {
+                let response = await fetch(API_URL);
+                let data = await response.json();
+                // console.log(data);
+            
+                let observations = data.observations;
+                let importantDate = [];
+
+                //HERE is to calculate the changes of the rate
+                for (let i = 1; i < observations.length; i++) {
+                    let prevRate = parseFloat(observations[i - 1].value);
+                    let currRate = parseFloat(observations[i].value);
+                    let date = observations[i].date;
+
+                    let change = (currRate - prevRate).toFixed(2);
+
+                    //HERE is to calculate the changes of the rate
+                    //if >= +-0.5, its consider huge and can push the date 
+                    if (Math.abs(change) >= 0.5) { // Detect large rate changes
+                        importantDate.push(date);
+                        // console.log(date, change);
+                    }
+                    
+                }
+                //HERE is to fetch the news on the date pushed
+                fetchNew(chartData, importantDate);
+               
+            } catch (error) {
+                    console.error("Error fetching event data:", error);
+                }
+            
+        }
+
+        //HERE is to fetch the news and set the markers including trump/btc price/otehr events
+        //need to add importantDate as param if its called by fetchEvent(); no need if called by loadChart()
+        function fetchNew(chartData){
+            //news_data2 = newsapi
+            //news_data = alpha vantage
+            // let newsData = JSON.parse(localStorage.getItem("news_data2")); 
+            let newsDataKeys = ["news_data2", "news_data4", "news_data5"];
+            let allNewsData = [];
+            
+            newsDataKeys.forEach(key => {
+                let item = localStorage.getItem(key); // Get item by key
+                if (item) {
+                    try {
+                        // Parse the item into JSON if it's a valid string
+                        let parsedItem = JSON.parse(item);
+
+                        // Check if the parsed item is an array
+                        if (Array.isArray(parsedItem)) {
+                            allNewsData.push(...parsedItem); // Merge into the allNewsData array
+                        } else if (typeof parsedItem === 'object') {
+                            // If it's an object, you can convert it into an array or handle it as needed
+                            allNewsData.push(parsedItem); // Just push the object into the array
+                        } else {
+                            console.warn(`The data for key ${key} is neither an array nor an object.`);
+                        }
+                    } catch (error) {
+                        console.error(`Failed to parse data for key ${key}:`, error);
+                    }
+                } else {
+                    console.warn(`No data found for key ${key}`);
+                }
+            });
+
+            
+
+
+            // console.log(allNewsData); // All news data combined into one array
+            let allArticles = allNewsData.flatMap(newsItem => newsItem.articles);
+            // console.log(allArticles); // Now it contains all articles in a single array
+
+            let importantEvents = [];
+            const latestCandle = chartData[chartData.length - 1];
+            // const markerTime = new Date(latestCandle.time * 1000).toISOString().split('T')[0];
+            const markerTime = latestCandle.time; 
+            
+            if(chartData){
+                //HERE is to set the initial markers
+                let markers = [{
+                            time: '2024-11-05', // Ensure this matches data format63
+                            position: 'aboveBar', 
+                            color: '#eb251e', 
+                            shape: 'circle', 
+                            text: 'Trump Election', 
+                            size:2
+                        },
+                        {
+                            time: markerTime, 
+                            position: 'belowBar', 
+                            color: '#cc5118                                                         ', // Marker color
+                            shape: 'arrowDown', 
+                            text: `Closing Price: $${latestCandle.close.toFixed(2)}`, 
+                            size:2
+                        }
+                    ];
+                    // console.log(markerTime);
+                    if (latestCandle) {
+                        candleSeries.setMarkers(markers);
+                    } else {
+                        console.error('latestCandle is undefined or null');
+                    }
+            
+            
+
+            if (allArticles) {
+                try {
+                    // combinedNewsData = JSON.parse(combinedNewsData); // Convert from string to JSON
+                    // console.log("Parsed news data:", newsData);
+                    // console.log(allArticles);
+                    // Check if `feed` exists and is an array
+                    if (allArticles && Array.isArray(allArticles)) {
+                        // let newsArray = allArticles; // Extract the news array
+                        // console.log("Extracted feed array:", newsArray);
+                        // let formattedDate = importantDate.map(date => date.split('-').join('')); // Convert to YYYYMMDD formatconst formattedDate = date.split('-').join(''); // Convert to YYYYMMDD format if needed
+                        // Example filter for important events
+                        const keywords = [
+                            "inflation", "interest rate", "GDP", "recession", "subsidies", 
+                            "stimulus", "default", "bankruptcy", "merger", "acquisition", "bitcoin falls"
+                        ];
+                        allArticles = allArticles.filter(item => item && item.title);
+                        // console.log(allArticles);
+                        // Filter news articles based on the keywords defined
+                        importantEvents = allArticles.filter(article => {
+                            return keywords.some(keyword => 
+                                article.title.toLowerCase().includes(keyword)
+                            );
+                        });
+                        let englishArticles = importantEvents.filter(article =>
+                            /^[a-zA-Z0-9\s.,'!?-]+$/.test(article.title)
+                        );
+                        // console.log(englishArticles);
+                        // let eventDate = importantEvents.filter(article => 
+                        //     article.time_published.startsWith(formattedDate)
+                        // );
+                        // console.log("Filtered events date:", eventDate);
+                        // console.log(importantEvents);
+
+
+                        //iE = w/o taking the fund rate
+                        //eD = take event start with date based on fund rate
+                        //HERE is to set the markers of the events filtered
+                        const newMarkers = importantEvents.map(event => {
+                            let rawDate = event.publishedAt || ""; // Get time_published safely
+                            let formattedDate = "";
+                            // console.log(rawDate);
+                            if (rawDate) {
+                                try {
+                                    // Convert ISO 8601 timestamp to YYYY-MM-DD format
+                                    let dateObj = new Date(rawDate);
+                                    formattedDate = dateObj.toISOString().split("T")[0]; // Extract YYYY-MM-DD
+                                } catch (error) {
+                                    console.warn(`Invalid date format detected: ${rawDate}, using fallback.`);
+                                    formattedDate = "2024-01-01"; // Fallback date
+                                }
+                            } else {
+                                console.warn(`Missing date for event: ${event.title}`);
+                                formattedDate = "2024-01-01"; // Fallback date
+                            }
+
+                            return {
+                                time: formattedDate,
+                                position: "aboveBar",
+                                color: '#eb251e',
+                                shape: "circle",
+                                text: event.title,
+                                size:2
+                            };
+                        
+                        });
+                        //combine initial and new markers
+                        markers = [...markers, ...newMarkers];
+                        candleSeries.setMarkers(markers);
+                        } else {
+                            console.error("⚠️ ERROR: `newsData.feed` is missing or not an array. Full object:", allArticles);
+                        }
+                    } catch (error) {
+                        console.error("⚠️ ERROR: Failed to parse news data:", error);
+                    }
+                    } else {
+                        console.log("⚠️ No news data found in localStorage.");
+                    }
+                
+            }    // candleSeries.setMarkers(marker);
+        }
+
+        //HERE is to shorten the event title into suitable short label
+        //now didn't use it
+        function shortenEventLabel(title) {
+            // Common financial and stock-related abbreviations
+            const abbreviations = {
+                "Federal Reserve": "Fed",
+                "Interest Rate": "Rate",
+                "Approval": "Approved",
+                "Decision": "Dec.",
+                "Announces": "",
+                "Reports": "",
+                "Earnings": "Earnings",
+                "Bitcoin": "BTC",
+                "Ethereum": "ETH",
+                "Halving": "Halving",
+                "Merger": "Merge",
+                "Market Rally": "Rally",
+                "Stock Crash": "Crash",
+                "Inflation": "CPI"
+            };
+
+            // Split the title into words
+            let words = title.split(" ");
+
+            // Replace words with abbreviations where applicable
+            let shortenedWords = words.map(word => abbreviations[word] || word);
+
+            // Remove empty words and unnecessary conjunctions
+            let filteredWords = shortenedWords.filter(word => word && !["the", "is", "on", "for", "to"].includes(word.toLowerCase()));
+
+            // Join back into a shortened title
+            return filteredWords.join(" ");
+        }
+        
+        //HERE is to update the legend dynamically
+        //now only for bollinger bands
+        function updateLegend(indicator, period, color) {
+           
+            const legendContainer = document.getElementById("smaLegend"); // Use a general container for all legends
+            // Check if the legend for this specific indicator already exists
+            let existingLegend = document.getElementById(`legend-${indicator}`);
+            let leg = document.getElementById(`${indicator}-select`);
+            // console.log("line 101", leg);
+            // console.log("line 102", indicator);
+            let selectedText = null;
+            if(indicator=="bb"){
+                // console.log("bb");
+                selectedText = leg.innerText;}
+            // else if (indicator == "fib") {
+            //     // console.log("fib");
+            //     selectedText = getFibonacciLevel();
+            //     // console.log(selectedText);
+            // }else if (indicator == "SMA"){
+            //     selectedText = getSMAPeriod();
+            //     // console.log("SMA");
+            // }
+            // else{ //for ema and sma (single option)
+            //     // console.log("Im else");
+            //     selectedText = leg.options[leg.selectedIndex].innerText;
+            //     // console.log("EMA");
+            // }
+            // console.log("line 108", selectedText);
+           
+            // if period == "None"
+            if(isNaN(period)){
+                if(existingLegend){
+                    legendContainer.removeChild(existingLegend);
+                }
+                return;
+            }
+            if (existingLegend) {
+                // Remove the existing legend for the same indicator before adding a new one
+                legendContainer.removeChild(existingLegend);
+            }
+            //if 0 go here
+            // Create a new legend item if it doesn’t exist
+            const legendItem = document.createElement("div");
+            legendItem.id = `legend-${indicator}`;  // Unique ID for each legend
+            legendItem.style.color = color;
+            legendItem.style.fontSize = "14px";
+            legendItem.style.fontWeight = "bold";
+            if(indicator!="bb")
+                legendItem.innerText = selectedText;
+            else
+                legendItem.innerText = "Bollinger Bands";
+            // console.log("line 119",legendItem.id)
+            // Append new legend item
+            
+            legendContainer.appendChild(legendItem);
+            
+            updateLegendBorder();
+            
+        }
+
+        //HERE is to update the legend border dynamically
+        function updateLegendBorder() {
+            const legendContainer = document.getElementById("smaLegend");
+
+            if (legendContainer.childElementCount === 0) {
+                // If empty, no border
+                legendContainer.style.border = "0px";
+            } 
+            else {
+                // If has items, use solid border
+                legendContainer.style.border = "2px solid #b3bab3";
+            }
+            
+        }
+        
+        //HERE is to fetch the BTC data from binanceAPI
+        //timeframe is either '1d' or '4hr'
+        // async function fetchData(timeframe)
+        async function fetchData(timeframe) {
+            try {
+                const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${timeframe}&limit=1000`);
+                // const response = await fetch(`https://www.alphavantage.co/query?function=DIGITAL_CURRENCY_DAILY&symbol=BTC&market=USD&apikey=9WHCIQDMR3UZ2W1J`);
+                const data = await response.json();
+                // console.log(data);
+                // const timeSeries = data["Time Series (Digital Currency Daily)"];
+                // const timeSeriesArray = Object.keys(timeSeries).map(date => {
+                // return {
+                //     time: date,
+                //     open: parseFloat(timeSeries[date]["1. open"]),
+                //     high: parseFloat(timeSeries[date]["2. high"]),
+                //     low: parseFloat(timeSeries[date]["3. low"]),
+                //     close: parseFloat(timeSeries[date]["4. close"]),
+                //     volume: parseInt(timeSeries[date]["5. volume"])
+                // };
+                // });
+                // console.log(timeSeriesArray);
+                // timeSeriesArray.reverse();
+                // return timeSeriesArray;
+                console.log("📊 Data Length:", data.length); //1000
+                //volume can be ignore
+                return data.map(d => ({
+                    time: d[0] / 1000,
+                    open: parseFloat(d[1]),
+                    high: parseFloat(d[2]),
+                    low: parseFloat(d[3]),
+                    close: parseFloat(d[4]),
+                    volume: parseFloat(d[5])
+                }));
+                
+            } catch (error) {
+                console.error("❌ Error fetching data:", error);
+            }
+        }
+
+        async function fetchLineData(timeframe) {
+            try {
+                const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${timeframe}&limit=1000`);
+                // const response = await fetch(`https://www.alphavantage.co/query?function=DIGITAL_CURRENCY_DAILY&symbol=BTC&market=USD&apikey=9WHCIQDMR3UZ2W1J`);
+                const data = await response.json();
+                console.log("📊 Data Length:", data.length); //1000
+                //volume can be ignore
+                return data.map(d => ({
+                    time: d[0] / 1000, // Convert timestamp to seconds
+                    value: parseFloat(d[4]) // Closing price (index 4 in the array)
+                }));
+                
+            } catch (error) {
+                console.error("❌ Error fetching data:", error);
+            }
+        }
+
+        //HERE is to fetch the M2 data using backend with federal reserve API
+        async function fetchM2() {
+            const API_URL = "http://localhost:3000/m2-data"; // Fetch from local server
+
+            try {
+                let response = await fetch(API_URL);
+                let data = await response.json();
+                let observations = data.observations;
+                let m2Data = observations.map(d => ({
+                    time: d.date,  // Ensure format is YYYY-MM-DD
+                    value: parseFloat(d.value)
+                }));
+               m2Series.setData(m2Data); // Update M2 series in LightweightCharts
+               if (m2Data.length > 0) {
+                    let latestM2 = m2Data[m2Data.length - 1]; // Get the latest data point
+
+                    m2Series.setMarkers([
+                        {
+                            time: latestM2.time,  // Ensure this matches the format in setData()
+                            position: 'aboveBar', // Position marker above the data point
+                            color: '#d19a02',     // Marker color
+                            shape: 'arrowDown',   // Shape type
+                            text: `M2: $${latestM2.value} Billion`, // Display the value
+                            size: 2,
+                            textFontSize: 40
+                        }
+                    ]);
+                }
+            } catch (error) {
+                console.error("Error fetching M2 data:", error);
+            }
+        }
+
+        //HERE is to calculate SMA with different periods
+        function calculateSMA(data, period) {
+            let smaData = [];
+            for (let i = period - 1; i < data.length; i++) { 
+                let sum = 0;
+                for (let j = 0; j < period; j++) { 
+                    sum += data[i - j].close;
+                }
+                let avg = sum / period;
+                smaData.push({ time: data[i].time, value: avg });
+            }
+            // console.log("period", period); //81 sma (100-19)
+            return smaData;
+        }
+
+        //HERE is to calculate EMA with different periods
+        function calculateEMA(data, period) {
+            let emaData = [];
+            let multiplier = 2 / (period + 1); // Smoothing factor 2/21
+
+            // Start with the first SMA as the initial EMA value
+            let sum = 0;
+            for (let i = 0; i < period; i++) {// i<50
+                sum += data[i].close;
+            }
+            let prevEMA = sum / period;
+            if (data[period - 1]) {
+                // console.log("Im here");
+                emaData.push({ time: data[period - 1].time, value: prevEMA });
+            }
+
+            // Calculate EMA for the rest
+            for (let i = period; i < data.length; i++) {
+                let ema = (data[i].close - prevEMA) * multiplier + prevEMA;
+                emaData.push({ time: data[i].time, value: ema });
+                prevEMA = ema;
+            }
+            return emaData;
+        }
+
+        //HERE is to calculate the BB with fixed(20) periods
+        function calculateBollingerBands(data, period = 20, multiplier = 2) {
+            let bands = [];
+
+            for (let i = period - 1; i < data.length; i++) {
+                let slice = data.slice(i - period + 1, i + 1); // Get last `period` values
+                let sma = slice.reduce((sum, d) => sum + d.close, 0) / period;
+
+                // Calculate standard deviation
+                let variance = slice.reduce((sum, d) => sum + Math.pow(d.close - sma, 2), 0) / period;
+                let stdDev = Math.sqrt(variance);
+
+                let upperBand = sma + (stdDev * multiplier);
+                let lowerBand = sma - (stdDev * multiplier);
+
+                bands.push({ time: data[i].time, middle: sma, upper: upperBand, lower: lowerBand });
+            }
+            return bands;
+        }
+
+        //HERE is to remove the BB (3 series) when the checkbox is unchecked or when the chart is reset/switched
+        function removeBollingerBands() {
+            if (bollingerUpperSeries) {
+                chart.removeSeries(bollingerUpperSeries);
+                bollingerUpperSeries = null;
+            }
+            if (bollingerLowerSeries) {
+                chart.removeSeries(bollingerLowerSeries);
+                bollingerLowerSeries = null;
+            }
+            if (bollingerMiddleSeries) {
+                chart.removeSeries(bollingerMiddleSeries);
+                bollingerMiddleSeries = null;
+            }
+        }
+
+        //HERE is to calculate the Fibonacci level with 7 level 
+        function calculateFibonacciLevels(high, low) {
+            return {
+                0.0: high - (0.0 * (high - low)),
+                0.236: high - (0.236 * (high - low)),
+                0.382: high - (0.382 * (high - low)),
+                0.5: high - (0.5 * (high - low)),
+                0.618: high - (0.618 * (high - low)),
+                0.786: high - (0.786 * (high - low)),
+                1.0: high - (1.0 * (high - low)),
+            };
+        }
+
+        //HERE is to add the Fibonacci lines when checkbox is checked
+        //horizontal priceLine is used
+        function toggleFibonacciLevel(level, value, checked) {
+            if (checked) {
+                if (!fibonacciLines[level]) {
+                    fibonacciLines[level] = candleSeries.createPriceLine({
+                        price: value,
+                        color: '#edb90e', 
+                        lineWidth: 1,
+                        lineStyle: 2, // Dashed Line
+                        axisLabelVisible: true, // Show label on the price axis
+                        title: `Fib ${level}%` // Label for the Fibonacci level
+                    });
+                }
+            } else {
+                if (fibonacciLines[level]) {
+                    candleSeries.removePriceLine(fibonacciLines[level]);
+                    delete fibonacciLines[level];
+                }
+            }
+
+            // Update legend based on remaining Fibonacci levels
+            // const remainingLevels = Object.keys(fibonacciLines);
+            // if (remainingLevels.length > 0) {
+            //     updateLegend("fib", 0, "#edb90e");
+            // } else {
+            //     updateLegend("fib", "None", "#73c769");
+            // }
+        }
+
+        //HERE is to create Fibonacci checkbox dynamically
+        function createFibonacciCheckboxes(chartData) {
+            const fibContainer = document.getElementById("fibonacci-options");
+            fibContainer.innerHTML = ""; // Clear existing checkboxes
+
+            const high = Math.max(...chartData.map(d => d.high));
+            const low = Math.min(...chartData.map(d => d.low));
+            //HERE is to call the function for calculation
+            const fibLevels = calculateFibonacciLevels(high, low);
+
+            // Create dropdown container
+            const details = document.createElement("details");
+            const summary = document.createElement("summary");
+            summary.innerText = "Select Fibonacci Levels";
+            
+            details.appendChild(summary);
+
+            const checkboxContainer = document.createElement("div");
+            checkboxContainer.style.display = "flex";
+            checkboxContainer.style.flexDirection = "column";
+            checkboxContainer.style.padding = "8px";
+
+            Object.entries(fibLevels)
+            .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
+            .forEach(([level, value]) => {
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.id = `fib-${level}`;
+                checkbox.value = level;
+                //HERE is to call the function for drawing the lines
+                checkbox.addEventListener("change", function () {
+                    toggleFibonacciLevel(level, value, this.checked, chartData);
+                });
+
+                const label = document.createElement("label");
+                label.htmlFor = `fib-${level}`;
+                label.innerText = `Fib ${level}`;
+
+                const div = document.createElement("div");
+                div.style.display = "flex";
+                div.style.alignItems = "center";
+                div.style.gap = "5px";
+
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                checkboxContainer.appendChild(div);
+            });
+
+            details.appendChild(checkboxContainer);
+            fibContainer.appendChild(details);
+        }
+
+
+        // function getFibonacciLevel() {
+        //     const selectedLevel = [];
+        //     const checkboxes = document.querySelectorAll("#fibonacci-options input[type='checkbox']:checked");
+            
+        //     if (!checkboxes) return []; // Ensure it always returns an array
+
+        //     checkboxes.forEach((checkbox) => {
+        //         const label = document.querySelector(`label[for="${checkbox.id}"]`);
+        //         if (label) {
+        //             selectedLevel.push(label.innerText);
+        //         }
+        //     });
+
+        //     console.log("Selected Fibonacci Levels:", selectedLevel);
+        //     return selectedLevel.length ? selectedLevel.join("\n ") : []; // Always return an array
+        // }
+
+
+        // function getSMAPeriod() {
+        //     const selectedPeriod = [];
+        //     const checkboxes = document.querySelectorAll("#sma-options input[type='checkbox']:checked");
+            
+        //     if (!checkboxes) return []; // Ensure it always returns an array
+
+        //     checkboxes.forEach((checkbox) => {
+        //         const label = document.querySelector(`label[for="${checkbox.id}"]`);
+        //         if (label) {
+        //             selectedPeriod.push(label.innerText);
+        //         }
+        //     });
+
+        //     console.log("Selected SMA Periods:", selectedPeriod);
+        //     return selectedPeriod.length ? selectedPeriod.join("\n ") : []; // Always return an array
+        // }
+
+        //HERE is to draw SMA lines when checkboxes are checked
+        function toggleSMA(period, checked, chartData) {
+            //different shades of blue for different periods
+            const smaColors = {
+                20: '#1e95e3',  
+                50: '#227bb5',  
+                100: '#22648f', 
+                200: '#1c4763'  
+            };
+            const color = smaColors[period];
+            if (checked) {
+                if (!smaLines[period]) {
+                    // console.log(smaLines[period]);
+                    
+                    smaLines[period] = chart.addLineSeries({
+                        color: color, 
+                        lineWidth: 2, 
+                        lineStyle: 0 // Solid Line
+                    });
+                }
+                //HERE is to call the function for calculation
+                const smaData = calculateSMA(chartData, period);
+                smaLines[period].setData(smaData);
+            } else {
+                if (smaLines[period]) {
+                    chart.removeSeries(smaLines[period]);
+                    delete smaLines[period];
+                    
+                }
+            }
+
+            // const remainingSMAs = Object.keys(smaLines);
+            // if (remainingSMAs.length > 0) {
+            //     updateLegend("SMA", 0, color);
+            // } else {
+            //     updateLegend("SMA", "None", color);
+            // }
+        }
+
+        //HERE is to create the SMA checkboxes dynamically
+        function createSMACheckboxes(chartData) {
+            const smaContainer = document.getElementById("sma-options");
+            smaContainer.innerHTML = ""; // Clear existing checkboxes
+
+            const smaPeriods = [20, 50, 100, 200]; // Common SMA periods
+
+            const details = document.createElement("details");
+            const summary = document.createElement("summary");
+            summary.innerText = "Select SMA Periods";
+            details.appendChild(summary);
+
+            const checkboxContainer = document.createElement("div");
+            checkboxContainer.style.display = "flex";
+            checkboxContainer.style.flexDirection = "column";
+            checkboxContainer.style.padding = "8px";
+
+            smaPeriods.forEach(period => {
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.id = `sma-${period}`;
+                checkbox.value = period;
+                //HERE is to call the function to draw lines
+                checkbox.addEventListener("change", function () {
+                    toggleSMA(period, this.checked, chartData);
+                });
+
+                const label = document.createElement("label");
+                label.htmlFor = `sma-${period}`;
+                label.innerText = `SMA ${period}`;
+
+                const div = document.createElement("div");
+                div.style.display = "flex";
+                div.style.alignItems = "center";
+                div.style.gap = "5px";
+
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                checkboxContainer.appendChild(div);
+            });
+
+            details.appendChild(checkboxContainer);
+            smaContainer.appendChild(details);
+        }
+
+        //HERE is to calculate RSI
+        function calculateRSI(data, period = 14) {
+            let gains = [];
+            let losses = [];
+            console.log(data);
+            // Step 1: Compute gains & losses
+            for (let i = 1; i < data.length; i++) {
+                let change = data[i].close - data[i - 1].close;
+                gains.push(change > 0 ? change : 0);
+                losses.push(change < 0 ? Math.abs(change) : 0);
+            }
+
+            // Step 2: Compute initial average gain/loss
+            let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+            let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+
+            let rsi = [];
+
+            // Step 3: Compute RSI for each period
+            for (let i = period; i < gains.length; i++) {
+                avgGain = (avgGain * (period - 1) + gains[i]) / period;
+                avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+
+                let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                let rsiValue = 100 - (100 / (1 + rs));
+
+                rsi.push({ time: data[i + 1].time, value: rsiValue });
+            }
+
+            return rsi;
+        }
+
+        async function loadChart(timeframe) {
+            const binanceTimeframe = timeframe;
+            document.getElementById("smaLegend").innerHTML = "";
+            updateLegendBorder();
+            
+            
+            //clear chartData if there is any to ensure it contains the latest data
+            chartData = [];
+            // if using binanceAPI
+            chartData = await fetchData(binanceTimeframe);
+            lineData = await fetchLineData(binanceTimeframe);
+            // if using alphaVantage
+            // chartData = await fetchData();
+            // console.log("line 761", chartData);
+            const high = Math.max(...chartData.map(d => d.high));
+            const low = Math.min(...chartData.map(d => d.low));
+            //const smaCheckbox = document.getElementById('sma-checkbox');
+            //const emaCheckbox = document.getElementById('ema-checkbox');
+            const bbCheckbox = document.getElementById('bb-select');
+            const rsiCheckbox = document.getElementById('rsi-checkbox');
+            const sentCheckbox = document.getElementById('sent-checkbox');
+            let smaSelect = document.getElementById('sma-select');
+            let emaSelect = document.getElementById('ema-select');
+            console.log("Current timeframe:", timeframe);
+    
+            if (candleSeries!=null) {
+                // console.log("Im not null");
+                chart.removeSeries(candleSeries);
+                console.log(candleSeries);
+                candleSeries = null;
+            }
+            
+            if (chartData) {
+                const latestCandle = chartData[chartData.length - 1];
+                console.log("Loading chart for:", timeframe);
+                // smaSelect.value = "";
+                // Remove all the old series before adding a new one
+                emaSelect.value = ""; //clear the list for EMA
+                //remove Fibonacci lines
+                document.querySelectorAll('.fibonacci-options').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                
+                Object.values(fibonacciLines).forEach(series => {
+                    if(candleSeries){
+                        candleSeries.removePriceLine(series);
+                    }
+                });
+                fibonacciLines = {}; 
+                console.log(candleSeries);
+                //remove chart data
+                
+                //remove SMA lines
+                document.querySelectorAll('.sma-options').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                Object.values(smaLines).forEach(series => {
+                    chart.removeSeries(series);
+                });
+                smaLines = {};
+                // if (smaLines) { chart.removeSeries(smaLines); smaLines = null; }
+                // console.log(Object.keys(smaLines).length === 0);
+                // console.log(Object.keys(fibonacciLines).length === 0);
+                //remove EMA lines everytime the chart is switched
+                if (emaSeries) { chart.removeSeries(emaSeries); emaSeries = null; }
+                // console.log(emaSeries == null);
+                //remove BB lines
+                removeBollingerBands();
+                //remove RSI
+                if (rsiSeries) {
+                    rsiChart.removeSeries(rsiSeries);
+                    rsiSeries = null;
+                }
+                if(sentimentSeries){
+                    removeSentimentLine();
+                }
+                //ensure the checkbox is unchecked every time the chart is loaded
+                bbCheckbox.checked = false;
+                rsiCheckbox.checked = false;
+                sentCheckbox.checked = false;
+                // toggleSentimentLine();  // This will either add or remove the line based on checkbox state
+                // if(supertrendSeries){
+                //     console.log("Im stseries");
+                //     chart.removeSeries(supertrendSeries); 
+                //     supertrendSeries = null;
+                // }
+
+                //if (rsiSeries) { chart.removeSeries(rsiSeries); rsiSeries = null; }
+                
+                // if (bollingerUpperSeries) chart.removeSeries(bollingerUpperSeries);
+                // if (bollingerLowerSeries) { chart.removeSeries(bollingerLowerSeries); bollingerLowerSeries = null; }
+                // if (bollingerMiddleSeries) { chart.removeSeries(bollingerMiddleSeries); bollingerMiddleSeries = null; }
+
+                //HERE is to set the bitcoin data
+                candleSeries = chart.addCandlestickSeries();
+                candleSeries.setData(chartData);
+                if(candleSeries!=null) {
+                    console.log(chartData);
+                }
+                console.log(binanceTimeframe);
+                console.log(timeframe);
+                
+                //lineSeries.setData(lineData);
+                //HERE is to fetch the federal fund rate then fetch the corresponding events (now didn't use)
+                //then label the event in daily chart (but now just filter based on the keywords)
+                fetchNew(chartData);
+                // fetchMacroData();
+        
+                // setEvent(candleSeries);
+                //HERE is to create fibonacci checkboxes then plot the lines
+                createFibonacciCheckboxes(chartData);
+                //HERE is to create SMA checkboxes then plot the lines
+                createSMACheckboxes(chartData);
+        
+                // Listen for changes in the checkbox to toggle sentiment line
+                const sentimentCheckbox = document.getElementById('sent-checkbox');
+                // sentimentCheckbox.addEventListener('change', toggleSentimentLine);
+                // create a separate chart for RSI
+                if (!rsiChart) {
+                    rsiChart = LightweightCharts.createChart(document.getElementById('rsi-container'), {
+                        width: document.getElementById('rsi-container').clientWidth,
+                        height: 200,
+                        layout: { backgroundColor: '#ffffff', textColor: '#000' },
+                        grid: { vertLines: { color: '#eeeeee' }, horzLines: { color: '#eeeeee' } }
+                    });
+                }
+
+                // Remove old RSI series if exists
+                
+                
+                // smaSelect.addEventListener('change', function () {
+                //     if (maSeries) chart.removeSeries(maSeries);  // Remove previous SMA line
+        
+                //     const selectedPeriod = parseInt(this.value);
+                //     updateLegend("sma", selectedPeriod, "#3279a8"); 
+                //     // console.log("Sma period", selectedPeriod);
+                //     //if (!selectedPeriod) return;  // If "None" is selected, do nothing
+                //     const smaData = calculateSMA(chartData, selectedPeriod);
+                //     maSeries = chart.addLineSeries({ color: '#3279a8', lineWidth: 2 });
+                //     maSeries.setData(smaData);
+                //     //console.log("line 452",selectedPeriod)
+                    
+                // });
+                // add event listener for ema
+                // if(supertrendSeries.length > 0){
+                //     console.log("supertrendseries", supertrendSeries);
+                //     supertrendSeries.forEach(series => chart.removeSeries(series));
+                //     supertrendSeries = [];
+                // }
+                // const segments = addSupertrend(chartData);
+                // segments.forEach(segment => {
+                //     const slineSeries = chart.addLineSeries({
+                //     color: segment.color,
+                //     lineWidth: 2,
+                //     priceLineVisible: false,
+                //     lastValueVisible: false
+                //     });
+                // slineSeries.setData(segment.data);
+                // supertrendSeries.push(slineSeries);
+                // });
+                console.log(supertrendSeries);
+                // fetchMacroData();
+                emaSelect.addEventListener('change', function () {
+                    if (emaSeries) chart.removeSeries(emaSeries);  // Remove old EMA before adding new one
+                    const selectedPeriod = parseInt(this.value);
+                    // console.log("Ema period", selectedPeriod);
+                    // if (!selectedPeriod) return;  // If "None" is selected, do nothing
+                    // updateLegend("ema", selectedPeriod, "#73c769"); 
+                    
+                    const emaData = calculateEMA(chartData, selectedPeriod);
+                    emaSeries = chart.addLineSeries({ color: '#f58747', lineWidth: 2 });
+                    emaSeries.setData(emaData);
+                    //updateLegend("ema", selectedPeriod, "#73c769"); 
+                });
+                // add event listener for bb
+                bbCheckbox.addEventListener('change', function () {
+                    if (this.checked) {
+                        console.log(chartData);
+                        console.log("Type of chartData:", typeof chartData);
+                        console.log("Entries in chartData:", Object.keys(chartData));
+                        const bollingerData = calculateBollingerBands(chartData, 20, 2);
+                        if (!bollingerUpperSeries){
+                            // Middle Band (SMA)
+                            bollingerMiddleSeries = chart.addLineSeries({ color: '#7242a6', lineWidth: 2 , lineStyle: 2});
+                            bollingerMiddleSeries.setData(bollingerData.map(d => ({ time: d.time, value: d.middle })));
+
+                            // Upper Band
+                            bollingerUpperSeries = chart.addLineSeries({ color: '#8c50cc', lineWidth: 2 });
+                            bollingerUpperSeries.setData(bollingerData.map(d => ({ time: d.time, value: d.upper })));
+
+                            // Lower Band
+                            bollingerLowerSeries = chart.addLineSeries({ color: '#8c50cc', lineWidth: 2 });
+                            bollingerLowerSeries.setData(bollingerData.map(d => ({ time: d.time, value: d.lower })));
+
+                            updateLegend("bb", 0, "#8c50cc"); 
+                        }
+                    } 
+                    else {
+                        removeBollingerBands();
+                        updateLegend("bb", "None", "#8c50cc"); 
+                    }
+                });
+                // add event listener for rsi
+                rsiCheckbox.addEventListener('change', function () {
+                    if (!rsiChart) return;
+                    if (this.checked) {
+                        if (rsiSeries) {
+                            rsiChart.removeSeries(rsiSeries); // Remove previous RSI series
+                        }
+                        const rsiData = calculateRSI(chartData, 14);
+
+                        rsiSeries = rsiChart.addLineSeries({
+                            color: '#9467bd',
+                            lineWidth: 2,
+                        });
+
+                        rsiSeries.setData(rsiData);
+                        if (!rsiDashedLines) {
+                            rsiDashedLines = [
+                                rsiChart.addLineSeries({
+                                    color: '#00FF00', 
+                                    lineWidth: 1,
+                                    lineStyle: 2, // Dashed line
+                                }),
+                                rsiChart.addLineSeries({
+                                    color: '#00FF00', 
+                                    lineWidth: 1,
+                                    lineStyle: 2, //
+                                }),
+                            ];
+
+                            const minTime = rsiData[0].time;
+                            const maxTime = rsiData[rsiData.length - 1].time;
+
+                            rsiDashedLines[0].setData([{ time: minTime, value: 70 }, { time: maxTime, value: 70 }]);
+                            rsiDashedLines[1].setData([{ time: minTime, value: 30 }, { time: maxTime, value: 30 }]);
+                        }
+                    } else {
+                        if (rsiSeries) { 
+                            rsiChart.removeSeries(rsiSeries); rsiSeries = null; 
+                        }
+                    }
+                    
+                });
+                // m2Data = 
+                // m2Series.setData(m2Data);
+                document.title = `BTC ${timeframe.toUpperCase()} - $${latestCandle.close.toFixed(2)}`;
+                document.getElementById("chart-label").innerText = `Current Chart: ${timeframe === '1d' ? 'Daily (1D)' : '4-Hour (4H)'}`;
+                         
+            }
+        }
+
+        window.onload = async function() {
+            // console.log(LightweightCharts);
+            if (typeof LightweightCharts === "undefined") {
+                console.error("🚨 LightweightCharts is NOT loaded! Check your script tag.");
+                return;
+            }
+            
+            const chartContainer = document.getElementById('chart-container');
+            if (!chartContainer) {
+                console.error("Chart container not found!");
+                return;
+            }
+            chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: 600,
+                layout: { backgroundColor: '#ffffff', textColor: '#000' },
+                grid: { vertLines: { color: '#eeeeee' }, horzLines: { color: '#eeeeee' } },
+                rightPriceScale: { visible: true, borderColor: '#d1d4dc' }, // BTC on right axis
+                leftPriceScale: { visible: true, borderColor: '#d1d4dc' }   // M2 on left axis
+            });
+
+            // Add BTC Candlestick Series (Right Axis)
+            candleSeries = chart.addCandlestickSeries({ priceScaleId: 'right' });
+
+            //Add M2 Line Series (Left Axis)
+            m2Series = chart.addLineSeries({
+                color: '#d19a02', 
+                lineWidth: 2,
+                priceScaleId: 'left',
+                
+            });
+
+            
+
+            lineSeries = chart.addLineSeries({
+                color: 'blue', // Set the color for the line
+                lineWidth: 2,  // Adjust line thickness
+                zIndex : 2000
+            });
+
+            
+
+            baseSentimentSeries = chart.addHistogramSeries({
+                priceScaleId: 'left',
+                lineWidth: 2
+            });
+
+            topSentimentSeries = chart.addHistogramSeries({
+                priceScaleId: 'left',
+                lineWidth: 2
+            });
+
+            await loadChart('1d'); // Load default chart
+            await fetchM2();
+            // await fetchMaxSentData('1d');
+
+
+            // Create the tooltip div
+            const tooltip = document.createElement("div");
+            tooltip.style.position = "absolute";
+            tooltip.style.background = "rgba(255, 255, 255, 0.9)";
+            tooltip.style.padding = "5px";
+            tooltip.style.borderRadius = "5px";
+            tooltip.style.border = "1px solid #ccc";
+            tooltip.style.fontSize = "14px";
+            tooltip.style.display = "none";
+            tooltip.style.pointerEvents = "none"; // Prevents tooltip from interfering with mouse events
+            tooltip.style.zIndex = "1000"; // Ensures tooltip appears above everything
+            document.body.appendChild(tooltip);
+            const smaColors = {
+                20: '#1e95e3',  
+                50: '#227bb5',  
+                100: '#22648f', 
+                200: '#1c4763'
+            };
+
+            // Function to handle tooltip on hover
+            chart.subscribeCrosshairMove(param => {
+                if (!param || !param.point || !param.seriesData) {
+                    tooltip.style.display = "none";
+                    return;
+                }
+
+                const { point, seriesData } = param;
+                let text = "";
+
+                // Loop through SMA lines and check if they have data at the hovered point
+                Object.keys(smaLines).forEach(period => {
+                    if (seriesData.has(smaLines[period])) {
+                        const value = seriesData.get(smaLines[period]).value;
+                        text += `<b style="color: ${smaColors[period]};">SMA ${period}:</b> ${value.toFixed(2)}<br>`;
+                    }
+                });
+
+                Object.keys(fibonacciLines).forEach(level => {
+                    if (seriesData.has(fibonacciLines[level])) {
+                        const value = seriesData.get(fibonacciLines[level]).value;
+                        text += `<b>Fibonacci ${level}:</b> ${value.toFixed(2)}<br>`;
+                    }
+                });
+
+                const ema = document.getElementById("ema-select").value;
+                if (ema && emaSeries) {  // Check if EMA is selected and exists
+                    if (seriesData.has(emaSeries)) {
+                        const value = seriesData.get(emaSeries).value;
+                        const color = "#f58747";
+                        text += `<b style="color: ${color};">EMA ${ema}:</b> ${value.toFixed(2)}<br>`;
+                    }
+                }
+
+                if (stepSeries) {  // Check if EMA is selected and exists
+                    if (seriesData.has(stepSeries)) {
+                        const value = seriesData.get(stepSeries).value;
+                        const color = "#b08d04";
+                        text += `<b style="color: ${color};">Positive/Negative (Sentiment) ${ema}:</b> ${value.toFixed(2)}<br>`;
+                    }
+                }
+
+                if (sentimentSeries) {  // Check if EMA is selected and exists
+                    if (seriesData.has(sentimentSeries)) {
+                        const value = seriesData.get(sentimentSeries).value;
+                        const color = "#f58747";
+                        text += `<b style="color: ${color};">Sentiment ${ema}:</b> ${value.toFixed(2)}<br>`;
+                    }
+                }
+
+
+                if (text !== "") {
+                    tooltip.innerHTML = text;
+                    tooltip.style.left = `${point.x + 10}px`;
+                    tooltip.style.top = `${point.y - 10}px`;
+                    tooltip.style.display = "block";
+                } else {
+                    tooltip.style.display = "none";
+                }
+            });
+            
+        };
+    </script>
+</body>
+</html>
