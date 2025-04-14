@@ -1,5 +1,6 @@
 const express = require("express");
 const axios = require("axios");
+const path = require('path');
 const cors = require("cors");
 require('dotenv').config();
 const app = express();
@@ -41,13 +42,21 @@ app.get("/event-data", async (req, res) => {
 
 app.get("/fetch-news", async (req, res) => {
     try {
-        const API_URL = `https://newsapi.org/v2/everything?q=bitcoin&from=2025-04-01&to=2025-04-08&sortBy=publishedAt&apiKey=${newsApi}`;
+        const API_URL = `https://newsapi.org/v2/everything?q=bitcoin&from=2025-03-20&to=2025-03-31&sortBy=publishedAt&apiKey=${newsApi}`;
         const response = await axios.get(API_URL); // ✅ Use API_URL here
         res.json(response.data);
     } catch (error) {
         console.error("Error fetching news:", error.message); // ✅ Log the actual error
         res.status(500).json({ error: "Error fetching data" });
     }
+});
+
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Route to access the news_data.json file
+app.get('/data/news_data.json', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'data', 'news_data.json'));
 });
 
 app.get("/sentiment-data", async (req, res) => {
