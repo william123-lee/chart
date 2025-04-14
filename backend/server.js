@@ -14,6 +14,10 @@ const newsApi = process.env.NEWS_API_KEY;
 const santApi = process.env.SANTIMENT_API_KEY;
 // const API_KEY = "545181ae8a26a8888112b1510ad9f501"; // Replace with your FRED API key
 
+app.get('/', (req, res) => {
+    res.send('Backend is running 🚀');
+  });
+  
 
 app.get("/m2-data", async (req, res) => {
     try {
