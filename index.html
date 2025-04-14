@@ -613,43 +613,63 @@
 
         //HERE is to fetch the news and set the markers including trump/btc price/otehr events
         //need to add importantDate as param if its called by fetchEvent(); no need if called by loadChart()
-        function fetchNew(chartData){
+        async function fetchNew(chartData){
             //news_data2 = newsapi
             //news_data = alpha vantage
             // let newsData = JSON.parse(localStorage.getItem("news_data2")); 
-            let newsDataKeys = ["news_data2", "news_data4", "news_data5"];
+            // let newsDataKeys = ["news_data2", "news_data4", "news_data5"];
             let allNewsData = [];
-            
-            newsDataKeys.forEach(key => {
-                let item = localStorage.getItem(key); // Get item by key
-                if (item) {
-                    try {
-                        // Parse the item into JSON if it's a valid string
-                        let parsedItem = JSON.parse(item);
+            const API_URL = "https://chart-backend-0rxq.onrender.com/data/news_data.json";
+            await fetch(API_URL).then(response => response.json()).then(data => {
 
-                        // Check if the parsed item is an array
-                        if (Array.isArray(parsedItem)) {
-                            allNewsData.push(...parsedItem); // Merge into the allNewsData array
-                        } else if (typeof parsedItem === 'object') {
-                            // If it's an object, you can convert it into an array or handle it as needed
-                            allNewsData.push(parsedItem); // Just push the object into the array
-                        } else {
-                            console.warn(`The data for key ${key} is neither an array nor an object.`);
+                if (Array.isArray(data)) {
+                    allNewsData.push(...data);
+                } else if (typeof data === 'object') {
+                    // If the data contains multiple datasets like {news_data2: [...], news_data4: [...], ...}
+                    for (let key in data) {
+                        if (Array.isArray(data[key])) {
+                            allNewsData.push(...data[key]);
+                        } else if (typeof data[key] === 'object') {
+                            allNewsData.push(data[key]);
                         }
-                    } catch (error) {
-                        console.error(`Failed to parse data for key ${key}:`, error);
                     }
                 } else {
-                    console.warn(`No data found for key ${key}`);
+                    console.warn("Data format is unexpected:", data);
                 }
-            });
+
+                console.log("All Combined News Data:", allNewsData);
+            })
+            .catch(error => console.error('Error fetching data:', error));
+            // newsDataKeys.forEach(key => {
+            //     let item = localStorage.getItem(key); // Get item by key
+            //     if (item) {
+            //         try {
+            //             // Parse the item into JSON if it's a valid string
+            //             let parsedItem = JSON.parse(item);
+
+            //             // Check if the parsed item is an array
+            //             if (Array.isArray(parsedItem)) {
+            //                 allNewsData.push(...parsedItem); // Merge into the allNewsData array
+            //             } else if (typeof parsedItem === 'object') {
+            //                 // If it's an object, you can convert it into an array or handle it as needed
+            //                 allNewsData.push(parsedItem); // Just push the object into the array
+            //             } else {
+            //                 console.warn(`The data for key ${key} is neither an array nor an object.`);
+            //             }
+            //         } catch (error) {
+            //             console.error(`Failed to parse data for key ${key}:`, error);
+            //         }
+            //     } else {
+            //         console.warn(`No data found for key ${key}`);
+            //     }
+            // });
 
             
 
 
             // console.log(allNewsData); // All news data combined into one array
             let allArticles = allNewsData.flatMap(newsItem => newsItem.articles);
-            // console.log(allArticles); // Now it contains all articles in a single array
+            console.log(allArticles); // Now it contains all articles in a single array
 
             let importantEvents = [];
             const latestCandle = chartData[chartData.length - 1];
