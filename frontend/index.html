@@ -398,89 +398,7 @@
 
 
         }
-      
-
-        function SuperTrend(data, period, multiplier) {
-            // atr
-            var atr = talib.ATR(r, period)
-
-            // baseUp , baseDown
-            var baseUp = []
-            var baseDown = []
-            for (var i = 0; i < r.length; i++) {
-                if (isNaN(atr[i])) {
-                    baseUp.push(NaN)
-                    baseDown.push(NaN)
-                    continue
-                }
-                baseUp.push((r[i].High + r[i].Low) / 2 + multiplier * atr[i])
-                baseDown.push((r[i].High + r[i].Low) / 2 - multiplier * atr[i])
-            }
-
-            // fiUp , fiDown
-            var fiUp = []
-            var fiDown = []
-            var prevFiUp = 0
-            var prevFiDown = 0
-            for (var i = 0; i < r.length; i++) {
-                if (isNaN(baseUp[i])) {
-                    fiUp.push(NaN)
-                } else {
-                    fiUp.push(baseUp[i] < prevFiUp || r[i - 1].Close > prevFiUp ? baseUp[i] : prevFiUp)
-                    prevFiUp = fiUp[i]
-                }
-
-                if (isNaN(baseDown[i])) {
-                    fiDown.push(NaN)
-                } else {
-                    fiDown.push(baseDown[i] > prevFiDown || r[i - 1].Close < prevFiDown ? baseDown[i] : prevFiDown)
-                    prevFiDown = fiDown[i]
-                }
-            }
-
-            var st = []
-            var prevSt = NaN
-            for (var i = 0; i < r.length; i++) {
-                if (i < period) {
-                    st.push(NaN)
-                    continue
-                }
-
-                var nowSt = 0
-                if (((isNaN(prevSt) && isNaN(fiUp[i - 1])) || prevSt == fiUp[i - 1]) && r[i].Close <= fiUp[i]) {
-                    nowSt = fiUp[i]
-                } else if (((isNaN(prevSt) && isNaN(fiUp[i - 1])) || prevSt == fiUp[i - 1]) && r[i].Close > fiUp[i]) {
-                    nowSt = fiDown[i]
-                } else if (((isNaN(prevSt) && isNaN(fiDown[i - 1])) || prevSt == fiDown[i - 1]) && r[i].Close >= fiDown[i]) {
-                    nowSt = fiDown[i]
-                } else if (((isNaN(prevSt) && isNaN(fiDown[i - 1])) || prevSt == fiDown[i - 1]) && r[i].Close < fiDown[i]) {
-                    nowSt = fiUp[i]
-                }
-
-                st.push(nowSt)
-                prevSt = st[i]
-            }
-
-            var up = []
-            var down = []
-            for (var i = 0; i < r.length; i++) {
-                if (isNaN(st[i])) {
-                    up.push(st[i])
-                    down.push(st[i])
-                }
-
-                if (r[i].Close < st[i]) {
-                    down.push(st[i])
-                    up.push(NaN)
-                } else {
-                    down.push(NaN)
-                    up.push(st[i])
-                }
-            }
-
-            return [up, down]
-        }
-
+  
         //HERE is to fetch the sentiment data from santiment
         // calculate the sentiment ratio
         function fetchMaxSentData(timeframe){
@@ -658,7 +576,7 @@
         //HERE is to fetch the federal fund rate to determine whether at that day spikes
         //now didn't use it
         async function fetchEvent(chartData) {
-            const API_URL = "http://localhost:3000/event-data"; // Fetch from local server
+            const API_URL = "https://chart-backend-0rxq.onrender.com/event-data"; // Fetch from local server
 
             try {
                 let response = await fetch(API_URL);
@@ -1014,7 +932,7 @@
 
         //HERE is to fetch the M2 data using backend with federal reserve API
         async function fetchM2() {
-            const API_URL = "http://localhost:3000/m2-data"; // Fetch from local server
+            const API_URL = "https://chart-backend-0rxq.onrender.com/m2-data"; // Fetch from local server
 
             try {
                 let response = await fetch(API_URL);
