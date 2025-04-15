@@ -2,7 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const path = require('path');
 const cors = require("cors");
-const cron = require('node-cron');
+// const cron = require('node-cron');
 const fs = require('fs');
 require('dotenv').config({path: 'C:/Users/User/Desktop/chart/.gitignore/.env'});
 const app = express();
