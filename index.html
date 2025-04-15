@@ -614,175 +614,128 @@
         //HERE is to fetch the news and set the markers including trump/btc price/otehr events
         //need to add importantDate as param if its called by fetchEvent(); no need if called by loadChart()
         async function fetchNew(chartData){
-            //news_data2 = newsapi
-            //news_data = alpha vantage
-            // let newsData = JSON.parse(localStorage.getItem("news_data2")); 
-            // let newsDataKeys = ["news_data2", "news_data4", "news_data5"];
             let allNewsData = [];
-            const API_URL = "https://chart-backend-0rxq.onrender.com/data/news_data.json";
-            await fetch(API_URL).then(response => response.json()).then(data => {
-
-                if (Array.isArray(data)) {
-                    allNewsData.push(...data);
-                } else if (typeof data === 'object') {
-                    // If the data contains multiple datasets like {news_data2: [...], news_data4: [...], ...}
-                    for (let key in data) {
-                        if (Array.isArray(data[key])) {
-                            allNewsData.push(...data[key]);
-                        } else if (typeof data[key] === 'object') {
-                            allNewsData.push(data[key]);
-                        }
-                    }
-                } else {
-                    console.warn("Data format is unexpected:", data);
-                }
-
-                console.log("All Combined News Data:", allNewsData);
-            })
-            .catch(error => console.error('Error fetching data:', error));
-            // newsDataKeys.forEach(key => {
-            //     let item = localStorage.getItem(key); // Get item by key
-            //     if (item) {
-            //         try {
-            //             // Parse the item into JSON if it's a valid string
-            //             let parsedItem = JSON.parse(item);
-
-            //             // Check if the parsed item is an array
-            //             if (Array.isArray(parsedItem)) {
-            //                 allNewsData.push(...parsedItem); // Merge into the allNewsData array
-            //             } else if (typeof parsedItem === 'object') {
-            //                 // If it's an object, you can convert it into an array or handle it as needed
-            //                 allNewsData.push(parsedItem); // Just push the object into the array
-            //             } else {
-            //                 console.warn(`The data for key ${key} is neither an array nor an object.`);
-            //             }
-            //         } catch (error) {
-            //             console.error(`Failed to parse data for key ${key}:`, error);
-            //         }
-            //     } else {
-            //         console.warn(`No data found for key ${key}`);
-            //     }
-            // });
-
             
+            fetch('http://localhost:3000/news-data-old')
+            .then(res => res.json())
+            .then(data => {
+                // console.log("All Combined News Data:", data);
+                let allNewsData = data;
 
-
-            // console.log(allNewsData); // All news data combined into one array
-            let allArticles = allNewsData.flatMap(newsItem => newsItem.articles);
-            console.log(allArticles); // Now it contains all articles in a single array
-
-            let importantEvents = [];
-            const latestCandle = chartData[chartData.length - 1];
-            // const markerTime = new Date(latestCandle.time * 1000).toISOString().split('T')[0];
-            const markerTime = latestCandle.time; 
-            
-            if(chartData){
-                //HERE is to set the initial markers
-                let markers = [{
-                            time: '2024-11-05', // Ensure this matches data format63
-                            position: 'aboveBar', 
-                            color: '#f74d4d', 
-                            shape: 'circle', 
-                            text: 'Trump Election', 
-                            size:2
-                        },
-                        {
-                            time: markerTime, 
-                            position: 'belowBar', 
-                            color: '#cc5118                                                         ', // Marker color
-                            shape: 'arrowUp', 
-                            text: 'BTC Closing Price($)', 
-                            size:2
-                        }
-                    ];
-                    // console.log(markerTime);
-                    if (latestCandle) {
-                        candleSeries.setMarkers(markers);
-                    } else {
-                        console.error('latestCandle is undefined or null');
-                    }
-            
-            
-
-            if (allArticles) {
-                try {
-                    // combinedNewsData = JSON.parse(combinedNewsData); // Convert from string to JSON
-                    // console.log("Parsed news data:", newsData);
-                    // console.log(allArticles);
-                    // Check if `feed` exists and is an array
-                    if (allArticles && Array.isArray(allArticles)) {
-                        // let newsArray = allArticles; // Extract the news array
-                        // console.log("Extracted feed array:", newsArray);
-                        // let formattedDate = importantDate.map(date => date.split('-').join('')); // Convert to YYYYMMDD formatconst formattedDate = date.split('-').join(''); // Convert to YYYYMMDD format if needed
-                        // Example filter for important events
-                        const keywords = [
-                            "inflation", "interest rate", "GDP", "recession", "subsidies", 
-                            "stimulus", "default", "bankruptcy", "merger", "acquisition", "bitcoin falls"
-                        ];
-                        allArticles = allArticles.filter(item => item && item.title);
-                        // console.log(allArticles);
-                        // Filter news articles based on the keywords defined
-                        importantEvents = allArticles.filter(article => {
-                            return keywords.some(keyword => 
-                                article.title.toLowerCase().includes(keyword)
-                            );
-                        });
-                        let englishArticles = importantEvents.filter(article =>
-                            /^[a-zA-Z0-9\s.,'!?-]+$/.test(article.title)
-                        );
-                        // console.log(englishArticles);
-                        // let eventDate = importantEvents.filter(article => 
-                        //     article.time_published.startsWith(formattedDate)
-                        // );
-                        // console.log("Filtered events date:", eventDate);
-                        // console.log(importantEvents);
-
-
-                        //iE = w/o taking the fund rate
-                        //eD = take event start with date based on fund rate
-                        //HERE is to set the markers of the events filtered
-                        const newMarkers = importantEvents.map(event => {
-                            let rawDate = event.publishedAt || ""; // Get time_published safely
-                            let formattedDate = "";
-                            // console.log(rawDate);
-                            if (rawDate) {
-                                try {
-                                    // Convert ISO 8601 timestamp to YYYY-MM-DD format
-                                    let dateObj = new Date(rawDate);
-                                    formattedDate = dateObj.toISOString().split("T")[0]; // Extract YYYY-MM-DD
-                                } catch (error) {
-                                    console.warn(`Invalid date format detected: ${rawDate}, using fallback.`);
-                                    formattedDate = "2024-01-01"; // Fallback date
-                                }
-                            } else {
-                                console.warn(`Missing date for event: ${event.title}`);
-                                formattedDate = "2024-01-01"; // Fallback date
-                            }
-
-                            return {
-                                time: formattedDate,
-                                position: "aboveBar",
-                                color: '#f74d4d',
-                                shape: "circle",
-                                text: event.title,
-                                size:2
-                            };
-                        
-                        });
-                        //combine initial and new markers
-                        markers = [...markers, ...newMarkers];
-                        candleSeries.setMarkers(markers);
-                        } else {
-                            console.error("⚠️ ERROR: `newsData.feed` is missing or not an array. Full object:", allArticles);
-                        }
-                    } catch (error) {
-                        console.error("⚠️ ERROR: Failed to parse news data:", error);
-                    }
-                    } else {
-                        console.log("⚠️ No news data found in localStorage.");
-                    }
+                let importantEvents = [];
+                const latestCandle = chartData[chartData.length - 1];
+                // const markerTime = new Date(latestCandle.time * 1000).toISOString().split('T')[0];
+                const markerTime = latestCandle.time; 
                 
-            }    // candleSeries.setMarkers(marker);
+                if(chartData){
+                    //HERE is to set the initial markers
+                    let markers = [{
+                                time: '2024-11-05', // Ensure this matches data format63
+                                position: 'aboveBar', 
+                                color: '#f74d4d', 
+                                shape: 'circle', 
+                                text: 'Trump Election', 
+                                size:2
+                            },
+                            {
+                                time: markerTime, 
+                                position: 'belowBar', 
+                                color: '#cc5118', // Marker color
+                                shape: 'arrowUp', 
+                                text: 'BTC Closing Price($)', 
+                                size:2
+                            }
+                        ];
+                        // console.log(markerTime);
+                        if (latestCandle) {
+                            candleSeries.setMarkers(markers);
+                        } else {
+                            console.error('latestCandle is undefined or null');
+                        }
+                
+                
+
+                    if (allNewsData) {
+                        try {
+                            // Check if `feed` exists and is an array
+                            if (allNewsData && Array.isArray(allNewsData)) {
+                                // Example filter for important events
+                                const keywords = [
+                                    "inflation", "interest rate", "GDP", "recession", "subsidies", 
+                                    "stimulus", "default", "bankruptcy", "merger", "acquisition", "bitcoin falls"
+                                ];
+                                allNewsData = allNewsData.filter(item => item && item.title);
+                                // console.log(allArticles);
+                                // Filter news articles based on the keywords defined
+                                importantEvents = allNewsData.filter(article => {
+                                    return keywords.some(keyword => 
+                                        article.title.toLowerCase().includes(keyword)
+                                    );
+                                });
+                                let englishArticles = importantEvents.filter(article =>
+                                    /^[a-zA-Z0-9\s.,'!?-]+$/.test(article.title)
+                                );
+                                // console.log(englishArticles);
+                                // let eventDate = importantEvents.filter(article => 
+                                //     article.time_published.startsWith(formattedDate)
+                                // );
+                                // console.log("Filtered events date:", eventDate);
+                                console.log(importantEvents);
+
+
+                                //iE = w/o taking the fund rate
+                                //eD = take event start with date based on fund rate
+                                //HERE is to set the markers of the events filtered
+                                const newMarkers = importantEvents.map(event => {
+                                    let rawDate = event.publishedAt || ""; // Get time_published safely
+                                    let formattedDate = "";
+                                    // console.log(rawDate);
+                                    if (rawDate) {
+                                        try {
+                                            // Convert ISO 8601 timestamp to YYYY-MM-DD format
+                                            let dateObj = new Date(rawDate);
+                                            formattedDate = dateObj.toISOString().split("T")[0]; // Extract YYYY-MM-DD
+                                        } catch (error) {
+                                            console.warn(`Invalid date format detected: ${rawDate}, using fallback.`);
+                                            formattedDate = "2024-01-01"; // Fallback date
+                                        }
+                                    } else {
+                                        console.warn(`Missing date for event: ${event.title}`);
+                                        formattedDate = "2024-01-01"; // Fallback date
+                                    }
+
+                                    return {
+                                        time: formattedDate,
+                                        position: "aboveBar",
+                                        color: '#f74d4d',
+                                        shape: "circle",
+                                        text: event.title,
+                                        size:2
+                                    };
+                                
+                                });
+                                //combine initial and new markers
+                                markers = [...markers, ...newMarkers];
+                                candleSeries.setMarkers(markers);
+                            } else {
+                                console.error("⚠️ ERROR: `newsData.feed` is missing or not an array. Full object:", allNewsData);
+                            }
+                            } catch (error) {
+                                console.error("⚠️ ERROR: Failed to parse news data:", error);
+                            }
+                            } else {
+                                console.log("⚠️ No news data found in localStorage.");
+                            }
+                    
+                } 
+                // You can use `allArticles` here to process further if needed
+            })
+            .catch(err => console.error("Failed to fetch news:", err));
+
+            
+
+
+               // candleSeries.setMarkers(marker);
         }
 
         //HERE is to shorten the event title into suitable short label
@@ -952,7 +905,7 @@
 
         //HERE is to fetch the M2 data using backend with federal reserve API
         async function fetchM2() {
-            const API_URL = "https://chart-backend-0rxq.onrender.com/m2-data"; // Fetch from local server
+            const API_URL = "http://localhost:3000/m2-data"; // Fetch from local server
 
             try {
                 let response = await fetch(API_URL);
@@ -980,6 +933,7 @@
                 }
             } catch (error) {
                 console.error("Error fetching M2 data:", error);
+
             }
         }
 
