@@ -6,7 +6,8 @@ const cors = require("cors");
 const fs = require('fs');
 require('dotenv').config({path: 'C:/Users/User/Desktop/chart/.gitignore/.env'});
 const app = express();
-const PORT = 3000; // You can change this port if needed
+const PORT = 3000; //can change this port if needed
+const fetch = require("node-fetch");
 
 // Enable CORS for frontend requests
 // const allowedOrigins = ["http://localhost:5500", "http://localhost:8080"]; // Update with your frontend URLs
@@ -17,10 +18,49 @@ const newsApi = process.env.NEWS_API_KEY;
 const santApi = process.env.SANTIMENT_API_KEY;
 // const API_KEY = "545181ae8a26a8888112b1510ad9f501"; // Replace with your FRED API key
 
-app.get('/', (req, res) => {
-    res.send('Backend is running 🚀');
-  });
+// app.get('/', (req, res) => {
+//     res.send('Backend is running 🚀');
+//   });
   
+app.use(express.static(path.join(__dirname, '..')));  // Go up one level to the root folder
+
+// Handle the root route and serve index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'index.html'));  // Go up one level to the root folder
+});
+
+app.get("/twitter-post", async (req, res) => {
+    const BEARER_TOKEN = 'AAAAAAAAAAAAAAAAAAAAAPACzwEAAAAAtatoNdMsHYKqdPnVpaRfXb4S6iU%3D2n2qvtgHNTcIwVh1PpRoyQy6hreVBPR0NDvhGwq93KsPEo6YtJ';  
+    const tweetId = '1904000755381760058';
+
+    const url = `https://api.twitter.com/2/tweets/${tweetId}?expansions=author_id&tweet.fields=created_at&user.fields=username,profile_image_url`;
+
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                "Authorization": `Bearer ${BEARER_TOKEN}`
+            }
+        });
+
+        const tweet = response.data.data;
+        const user = response.data.includes.users[0];
+
+        res.json({
+            profile: user.profile_image_url,
+            username: user.username,
+            text: tweet.text,
+            timestamp: tweet.created_at
+        });
+    } catch (error) {
+        console.error("Error fetching tweet:", error);
+        if (error.response) {
+            console.error("Status:", error.response.status);
+            console.error("Response data:", error.response.data);
+        }
+        res.status(500).json({ error: "Failed to fetch tweet" });
+    }
+});
+
 
 app.get("/m2-data", async (req, res) => {
     try {
@@ -36,6 +76,51 @@ app.get("/m2-data", async (req, res) => {
     }
 });
 
+// app.get("/mvrv", async(req, res)=>{
+//     const response = await axios.get("https://api.cryptoquant.com/v1/btc/market-indicator/mvrv?window=day&from=20191001&limit=2")
+//     const mvrv = response.data
+// })
+
+app.get("/mvrv-data", async(req, res)=>{
+    const query = 
+        `{
+            getMetric(metric: "mvrv_usd") {
+            timeseriesData(
+                slug: "bitcoin"
+                from: "2024-01-01T00:00:00Z"
+                to: "2025-04-01T00:00:00Z"
+                interval: "1d"
+            ) {
+                datetime
+                value
+            }
+            }
+        }`
+
+        try {
+            const response = await axios.post(
+                "https://api.santiment.net/graphql",
+                {query},
+                { headers: { "Authorization": `Apikey ${santApi}`,  "Content-Type": "application/json" } }
+            );
+    
+            console.log("Santiment API Response:", response.data);
+    
+            // Extract response data safely
+            const responseData = response.data.data || {};
+
+           
+    
+            res.json({
+                responseData
+            });
+        } catch (error) {
+            console.error("Error fetching data from Santiment:", error);
+            res.status(500).json({ error: `Failed to fetch data: ${error.message}` });
+        }
+      
+})
+
 //fetch historical news and its called in frontend
 app.get('/news-data-old', (req, res) => {
     const filePath  = path.join(__dirname, 'news', 'news_data.json');
@@ -50,7 +135,6 @@ app.get('/news-data-old', (req, res) => {
         try {
             const json = JSON.parse(data);
             console.log(json);
-            // If the file has something like { data1: { articles: [...] } }
             const articles = json.data1?.articles || [];
             console.log(articles)
             res.json(articles); // return just the articles array
@@ -69,7 +153,7 @@ app.get("/update-news", async (req, res) => {
         const API_URL = `https://newsapi.org/v2/everything?q=bitcoin&sortBy=publishedAt&apiKey=${newsApi}`;
         const apiResponse = await axios.get(API_URL);
         const newArticles = apiResponse.data.articles || [];
-
+        console.log(newArticles.length);
         // 📄 Load existing data
         let existingData = {};
         if (fs.existsSync(FILE_PATH)) {
@@ -82,10 +166,18 @@ app.get("/update-news", async (req, res) => {
                 data3: { status: "ok", totalResults: 0, articles: [] }
             };
         }
-        
+        // const totalArticles = existingData.data1.articles.length + existingData.data2.articles.length + existingData.data3.articles.length;
+        // console.log(existingData.data1.articles.length);
+        // console.log(existingData.data2.articles.length);
 
-        // 🧹 Merge and deduplicate by `url`
-        const allArticles = [...existingData.data1.articles, ...newArticles];
+
+        // Merge and deduplicate by `url`
+        const allArticles = [
+            ...existingData.data1.articles,
+            ...existingData.data2.articles,
+            ...existingData.data3.articles,
+            ...newArticles
+        ];
         const uniqueArticles = Array.from(
             new Map(allArticles.map(article => [article.url, article])).values()
         );
@@ -237,6 +329,7 @@ app.get("/truf-news", async (req, res) => {
         res.status(500).json({ error: "Error fetching data" }); // Return error response
     }
 });
+ 
 
 
-app.listen(PORT, () => console.log(`✅ Proxy server running on http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ Proxy server running on http://localhost:${PORT}`));
