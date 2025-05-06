@@ -8,6 +8,7 @@ require('dotenv').config({path: 'C:/Users/User/Desktop/chart/.gitignore/.env'});
 const app = express();
 const PORT = 3000; //can change this port if needed
 const fetch = require("node-fetch");
+const { ATR } = require('technicalindicators');
 
 // Enable CORS for frontend requests
 // const allowedOrigins = ["http://localhost:5500", "http://localhost:8080"]; // Update with your frontend URLs
@@ -23,6 +24,35 @@ const santApi = process.env.SANTIMENT_API_KEY;
 //   });
   
 app.use(express.static(path.join(__dirname, '..')));  // Go up one level to the root folder
+const ccxt = require('ccxt');
+
+
+(async () => {
+    const exchange = new ccxt.binance();
+    const ohlcv = await exchange.fetchOHLCV('BTC/USDT', '1d', undefined, 1000);
+
+    const headers = ['timestamp', 'open', 'high', 'low', 'close', 'volume'];
+    const rows = ohlcv.map(row => row.join(',')).join('\n');
+    fs.writeFileSync('ohlcv.csv', `${headers.join(',')}\n${rows}`);
+})();
+
+(async () => {
+    const exchange = new ccxt.binance();
+    const ohlcv = await exchange.fetchOHLCV('BTC/USDT', '4h', undefined, 1000);
+
+    const headers = ['timestamp', 'open', 'high', 'low', 'close', 'volume'];
+    const rows = ohlcv.map(row => row.join(',')).join('\n');
+    fs.writeFileSync('4hr.csv', `${headers.join(',')}\n${rows}`);
+})();
+
+(async () => {
+    const exchange = new ccxt.binance();
+    const ohlcv = await exchange.fetchOHLCV('BTC/USDT', '1w', undefined, 1000);
+
+    const headers = ['timestamp', 'open', 'high', 'low', 'close', 'volume'];
+    const rows = ohlcv.map(row => row.join(',')).join('\n');
+    fs.writeFileSync('weekly.csv', `${headers.join(',')}\n${rows}`);
+})();
 
 // Handle the root route and serve index.html
 app.get('/', (req, res) => {
@@ -61,10 +91,11 @@ app.get("/twitter-post", async (req, res) => {
     }
 });
 
-
+// old worked
 app.get("/m2-data", async (req, res) => {
+    
     try {
-        const API_URL = `https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${fredApi}&file_type=json&observation_start=2022-07-01&observation_end=2025-04-01`;
+        const API_URL = `https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${fredApi}&file_type=json&observation_start=2022-07-01&observation_end=2025-05-01`;
         const response = await axios.get(API_URL);
         res.json(response.data); // Send the API response to the frontend
     } catch (error) {
@@ -76,10 +107,102 @@ app.get("/m2-data", async (req, res) => {
     }
 });
 
-// app.get("/mvrv", async(req, res)=>{
-//     const response = await axios.get("https://api.cryptoquant.com/v1/btc/market-indicator/mvrv?window=day&from=20191001&limit=2")
-//     const mvrv = response.data
-// })
+function calculateSupertrend({ period, multiplier, high, low, close }) {
+    const atr = ATR.calculate({ period, high, low, close });
+    const result = [];
+   
+    const finalUpperBand = [];
+    const finalLowerBand = [];
+    const trend = [];
+    console.log(atr.length-1);
+    for (let i = 0; i < atr.length; i++) {
+        const realIndex = i + (period - 1); // aligns with original data
+        const hl2 = (high[realIndex] + low[realIndex]) / 2;
+        const upperBand = hl2 + multiplier * atr[i];
+        const lowerBand = hl2 - multiplier * atr[i];
+        
+        if (i === 0) {
+            finalUpperBand.push(upperBand);
+            finalLowerBand.push(lowerBand);
+            trend.push(true);
+        } else {
+            const prevClose = close[realIndex - 1];
+            const prevUpper = finalUpperBand[i - 1];
+            const prevLower = finalLowerBand[i - 1];
+    
+            finalUpperBand.push((upperBand < prevUpper || prevClose > prevUpper) ? upperBand : prevUpper);
+            finalLowerBand.push((lowerBand > prevLower || prevClose < prevLower) ? lowerBand : prevLower);
+    
+            const currClose = close[realIndex];
+            if (currClose > finalUpperBand[i]) {
+                trend.push(true);
+            } else if (currClose < finalLowerBand[i]) {
+                trend.push(false);
+            } else {
+                trend.push(trend[i - 1]);
+            }
+        }
+    
+        result.push({
+            index: realIndex,
+            supertrend: trend[i] ? finalLowerBand[i] : finalUpperBand[i],
+            trend: trend[i] ? "up" : "down"
+        });
+    }
+
+    return result;
+}
+
+// Supertrend endpoint
+app.get("/supertrend", async (req, res) => {
+    const { symbol = "BTCUSDT", interval = "1d" } = req.query;
+
+    const intervalMapping = {
+        "1d": "1d",
+        "4h": "4h",
+        "1w": "1w"
+    };
+
+    if (!intervalMapping[interval]) {
+        return res.status(400).json({ error: "Invalid timeframe. Use 1d, 4h, or 1w." });
+    }
+
+    try {
+        const binanceURL = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${intervalMapping[interval]}&limit=1000`;
+        const response = await axios.get(binanceURL);
+        const klineData = response.data;
+
+        const high = klineData.map(d => parseFloat(d[2]));
+        const low = klineData.map(d => parseFloat(d[3]));
+        const close = klineData.map(d => parseFloat(d[4]));
+        const timestamps = klineData.map(d => d[0]);
+
+        const supertrendData = calculateSupertrend({
+            period: 10,
+            multiplier: 3,
+            high,
+            low,
+            close
+        });
+
+        // Attach timestamp to the result
+        const resultWithTimestamps = supertrendData.map(d => ({
+            time: timestamps[d.index],
+            supertrend: d.supertrend,
+            trend: d.trend
+        }));
+
+        res.json({
+            timeframe: interval,
+            symbol,
+            supertrend: resultWithTimestamps
+        });
+
+    } catch (error) {
+        console.error("Error:", error.message);
+        res.status(500).json({ error: "Failed to calculate Supertrend" });
+    }
+});
 
 app.get("/mvrv-data", async(req, res)=>{
     const query = 
