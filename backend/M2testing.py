@@ -1,22 +1,18 @@
-import wbdata # type: ignore
-import pandas as pd
-from datetime import datetime
+# import requests
+# import json
 
-# # Set the indicators you want to fetch
-# indicators = {'FM.LBL.BMNY.M3.ZG': 'M2_growth'}
+# url = "https://api.worldbank.org/v2/country/MYS/indicator/FM.LBL.BMNY.CN?format=json&date=2000:2025&per_page=1000"
+# response = requests.get(url)
+# data = response.json()
 
-# # Define countries and the date range
-# countries = ['USA', 'DEU', 'CHN', 'IND']  # Example countries (ISO-3166-1 alpha-2 country codes)
-# start_date = datetime(2010, 1, 1)
-# end_date = datetime(2020, 1, 1)
+# # Print results
+# for entry in data[1]:  # data[1] contains the actual records
+#     print(f"Year: {entry['date']}, M2: {entry['value']}")
 
-# # Fetch the data with the correct parameters
-# data = wbdata.get_dataframe(indicators, country=countries, date=(start_date, end_date))
+import requests
 
-# # Print the fetched data
-# print(data)
+url = "https://sdmx.data.imf.org/ws/public/sdmxapi/rest/data/IFS/MY.FM.LBL.BMNY.CN.A/2000/2023"
+headers = {"Accept": "application/vnd.sdmx.data+json;version=1.0.0-wd"}
+response = requests.get(url, headers=headers)
+print(response.json())
 
-
-# Fetch available indicators from the World Bank API
-indicators = wbdata.get_countries()
-print(indicators)

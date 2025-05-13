@@ -95,7 +95,7 @@ app.get("/twitter-post", async (req, res) => {
 app.get("/m2-data", async (req, res) => {
     
     try {
-        const API_URL = `https://api.stlouisfed.org/fred/series/observations?series_id=M2SL&api_key=${fredApi}&file_type=json&observation_start=2022-07-01&observation_end=2025-05-01`;
+        const API_URL = `https://api.stlouisfed.org/fred/series/observations?series_id=WM2NS&api_key=${fredApi}&file_type=json&observation_start=2022-07-01&observation_end=2025-05-01`;
         const response = await axios.get(API_URL);
         res.json(response.data); // Send the API response to the frontend
     } catch (error) {
