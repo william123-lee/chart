@@ -1486,7 +1486,7 @@
         async function fetchSupertrend4h(){
 
             try {
-                let response = await fetch("http://localhost:5000/supertrend4h");
+                let response = await fetch("https://chart-backend-py.onrender.com/supertrend4h");
                 let data = await response.json();
                 const upTrend = [];
                 const downTrend = [];
@@ -1548,7 +1548,7 @@
             count+=1;
             console.log(count);
             try {
-                let response = await fetch("http://localhost:5000/supertrend1w");
+                let response = await fetch("https://chart-backend-py.onrender.com/supertrend1w");
                 let data = await response.json();
                 console.log(supertrendSeries);
                 const upTrend = [];
