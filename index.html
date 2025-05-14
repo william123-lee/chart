@@ -13,12 +13,26 @@
             background-color: #121212;
             color: #ffffff;
         } */
-        h2 {
+        /* h2 {
             font-family: 'Exo', sans-serif;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1px;
             
+        } */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        h3 {
+            font-family: 'Exo', sans-serif;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #011A41;
+            margin: 0;
         }
         .chart-tooltip {
             font-family: 'Lato', sans-serif;
@@ -32,12 +46,29 @@
         }
         #chart-container {
             width: 100%;
-            height: 650px;
+            height: 70vh;
             position: relative;
             /*background-color: #1e1e1e;*/
             margin-bottom: 20px;
         }
-        
+        #rsi-container {
+            width: 100%;               
+            height: 200px;        
+            position: relative;    
+            /* max-width: 800px;         
+            margin: 0 auto;            
+            padding: 10px;             
+            box-sizing: border-box;   
+            background-color: #ffffff;
+            border: 1px solid #ddd;   
+            border-radius: 8px;      
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);  */
+        }
+        @media (max-width: 768px) {
+            #chart-container {
+                height: 50vh;
+            }
+        }
         button {
             margin-top: 10px;
             padding: 10px;
@@ -57,10 +88,13 @@
             right: 20px;
             margin-bottom: 20px;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;  /* Align button and legend to the right */
+            gap: 6px;
         }
-
         #indicator-controls button {
-            padding: 6px 12px;
+            padding: 12px 12px !important;
             background-color: #c2d4f2;
             color: #011A41;
             border: none;
@@ -74,20 +108,44 @@
         }
         #indicator-controls-wrapper {
             display: flex; 
-            gap: 20px; 
-            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 10px; 
+            align-items: center;
+            /* flex-direction: column; */
+            padding: 10px;
+            max-width: 100%;
+            box-sizing: border-box;
+            justify-content: space-between;
+        }
+        #indicator-controls-wrapper button {
+            flex: 0 1 auto; /* Ensure buttons don't grow too wide */
+            
+        }
+        #indicator-controls-wrapper > div {
+            display: flex;
+            flex-direction: row; /* Stack label and input vertically */
+            align-items: center; /* Align items to the start */
+            gap: 4px; /* Adjust spacing between label and input */
+            flex: 0 1 auto;
+            flex-wrap: nowrap;
+        }
+        #indicator-controls-wrapper label {
+            /* display: flex;
+            align-items: center;
+            gap: 4px; reduce spacing between label text and input */
+            margin: 0;
+        }
+
+        #indicator-controls-wrapper select,
+        #indicator-controls-wrapper input[type="checkbox"],
+        #indicator-controls-wrapper button {
+            padding: 4px 6px;
         }
         #smaLegend {
-            position: absolute;
-            right: 20px;
-            top: 80px;
-            width: 100px;
-            margin-bottom: 10px;
             padding: 10px;
-            background: white;
-            border-radius: 5px;
-            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); 
-            text-align: left;
+            font-size: 14px;
+            color: #011A41;
+            white-space: nowrap;
         }
         input[type="checkbox"] {
             accent-color: #094d91; /* modern blue */
@@ -107,6 +165,12 @@
         select:hover {
             border-color: #094d91;
             background-color: #eef5fc;
+        }
+        .indicator-separator {
+            width: 100%;
+            height: 1px;
+            background-color: #999; /* or #ccc for lighter line */
+            margin: 15px 0 0 0;      /* space above the line */
         }
 
         .axis-label {
@@ -183,52 +247,124 @@
             border: none;
             border-top: 1px solid #eee;
         }
+        #indicator-popup {
+            /* position: absolute;
+            top: 60px;
+            right: 20px;
+            background: #fff;
+            border: 1px solid #ccc; */
+            padding: 15px;
+            max-width: 100%;
+            overflow-x: hidden;
+            /* border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            width: 250px; */
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* #open-indicator-menu {
+            margin: 10px;
+            padding: 8px 12px;
+            font-size: 14px;
+        } */
+        #open-indicator-menu {
+            font-family: 'Exo', sans-serif;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 8px 12px;
+            font-size: 14px;
+            background-color: #385f9e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        #open-indicator-menu:hover {
+        background-color: #033d91;
+        }
+
+
         
     </style>
 </head>
 <body>
-    <h2 style="color: #011A41">BTC Chart</h2>
-    <h3 id="chart-label" style="color: #011A41">Current Chart: Daily (1D)</h3> 
-    <div id="indicator-controls-wrapper">
-        <div id="indicator-controls">
-            <button onclick="clearAllIndicators()"> Clear All Indicators</button>
-        </div>
-        <div id="smaLegend"></div>
-        <label for="ema-select">EMA:</label>
-        <select id="ema-select">
-            <option value="">None</option>
-            <option value="20">EMA-20 Days</option>
-            <option value="50">EMA-50 Days</option>
-            <option value="200">EMA-200 Days</option>
-        </select>
-        <label>
-            <input type="checkbox" id="bb-select"> Bollinger Bands
-        </label>
-        <label>
-            <input type="checkbox" id="rsi-checkbox"> RSI
-        </label>
-        <label>
-            <input type="checkbox" id="super-checkbox"> Supertrend
-        </label>
-        <label>
-            <input type="checkbox" id="sent-checkbox"> Sentiment Analysis
-        </label>
-        
-        <div id="sma-options"></div>
-        <div id="fibonacci-options"></div>
-        <div id="ichimoku-options"></div> 
-        <label for="analysis-select">Analysis Indicators:</label>
-        <select id="analysis-select">
-            <option value="">None</option>
-            <option value="m2">M2</option>
-            <option value="mvrv">MVRV</option>
-        </select>      
+    <div style="display: flex; align-items: center; gap: 10px; padding-left: 15px; padding-bottom: 15px; padding-top: 15px;">
+
+        <h3 id="chart-label"></h3> 
+        <button id="open-indicator-menu">Indicators ⚙️</button>
     </div>
     
+    <div id="indicator-popup" class="hidden">
+        <div id="indicator-controls-wrapper">
+            <div id="indicator-controls">
+                <button onclick="clearAllIndicators()"> Clear All Indicators</button>
+                <div id="smaLegend" style="align-self: flex-end; padding: 10px;"></div>
+            </div>
+            <div>
+                <label for="ema-select">EMA:</label>
+                <select id="ema-select">
+                    <option value="">None</option>
+                    <option value="20">EMA-20 Days</option>
+                    <option value="50">EMA-50 Days</option>
+                    <option value="200">EMA-200 Days</option>
+                </select>
+            </div>
+
+            <div>
+                <label>
+                    <input type="checkbox" id="bb-select"> Bollinger Bands
+                </label>
+            </div>
+            
+            <div>
+                <label>
+                    <input type="checkbox" id="rsi-checkbox"> RSI
+                </label>
+            </div>
+            
+            <div>
+                <label>
+                    <input type="checkbox" id="super-checkbox"> Supertrend
+                </label>
+            </div>
+            
+            <div>
+                <label>
+                    <input type="checkbox" id="fvg-checkbox"> Fair value Gap
+                </label>
+            </div>
+            
+            <!-- <label>
+                <input type="checkbox" id="sent-checkbox"> Sentiment Analysis
+            </label> -->
+            
+            <div id="sma-options"></div>
+            <div id="fibonacci-options"></div>
+            <div id="ichimoku-options"></div> 
+            <div>
+                <label for="analysis-select">Analysis Indicators:</label>
+                <select id="analysis-select">
+                    <option value="">None</option>
+                    <option value="m2">M2</option>
+                    <option value="mvrv">MVRV</option>
+                </select>  
+            </div>
+        </div>
+       
+    </div>
+    <div class="indicator-separator"></div>
     <!-- <label id="ichimoku-options"></label>
     <label id="fibonacci-options"></label>
     <label id="sma-options"></label> -->
-    <div id="chart-container">
+    <!-- style="position: relative; width: 100%; height: 600px;" -->
+    <div id="chart-container" >
         <div id="x-axis-label" class="axis-label">Time</div>
         
     </div>
@@ -244,32 +380,34 @@
         let chart, chartData = [], candleSeries,  bollingerUpperSeries = null, bollingerMiddleSeries = null, bollingerLowerSeries = null, smaLines = {},
         fibonacciLines = {}, rsiSeries, rsiChart = null, rsiDashedLines, m2Series, emaSeries, sentimentSeries, baseSentimentSeries,
         topSentimentSeries, lineSeries, stepSeries, supertrendSeries = [], supertrendDownSeries, sma50 = null, sma200 = null, sma365 = null, commentaries, bbAlerts = [], 
-        markers = [], unixTime = null, tweetData = [], ichimokuLine = {}, updatedMvrvData = null, mvrvSeries, signals = [], newsBoxVisible, tweetBoxVisible, time = null, supertrendSegments = []; 
-        
-        const tweetBox = document.createElement("div");
-            tweetBox.id = "tweetBox";
-            tweetBox.style.position = "absolute";
-            // tweetBox.style.top = "100px";
-            // tweetBox.style.left = "10px";
-            tweetBox.style.padding = "16px";
-            tweetBox.style.border = "1px solid #7d7c7c";
-            tweetBox.style.borderRadius = "12px";
-            tweetBox.style.backgroundColor = "#ffffff";
-            tweetBox.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
-            tweetBox.style.zIndex = "1000";
-            tweetBox.style.display = "none";
-            tweetBox.style.pointerEvents = "auto";
-            tweetBox.style.width = "320px";
-            tweetBox.style.maxHeight = "400px";
-            tweetBox.style.overflowY = "auto";
-            tweetBox.style.color = "#333";
-            tweetBox.style.lineHeight = "1.5";
-            document.body.appendChild(tweetBox);
+        markers = [], unixTime = null, tweetData = [], ichimokuLine = {}, updatedMvrvData = null, mvrvSeries, signals = [], newsBoxVisible, tweetBoxVisible, time = null, supertrendSegments = [],
+        fvgMsg = [], fvgSeriesList = [], topFVG, bottomFVG; 
 
-            const newBox = document.createElement("div");
-            newBox.id = "tweetBox";
-            newBox.className = "news-container";
-            document.body.appendChild(newBox);
+        const tweetBox = document.createElement("div");
+        tweetBox.id = "tweetBox";
+        tweetBox.style.position = "absolute";
+        // tweetBox.style.top = "100px";
+        // tweetBox.style.left = "10px";
+        tweetBox.style.padding = "16px";
+        tweetBox.style.border = "1px solid #7d7c7c";
+        tweetBox.style.borderRadius = "12px";
+        tweetBox.style.backgroundColor = "#ffffff";
+        tweetBox.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+        tweetBox.style.zIndex = "10000";
+        tweetBox.style.display = "none";
+        tweetBox.style.pointerEvents = "auto";
+        tweetBox.style.width = "320px";
+        tweetBox.style.maxHeight = "400px";
+        tweetBox.style.overflowY = "auto";
+        tweetBox.style.color = "#333";
+        tweetBox.style.lineHeight = "1.5";
+        document.body.appendChild(tweetBox);
+
+        const newBox = document.createElement("div");
+        newBox.id = "tweetBox";
+        newBox.style.zIndex = "10000";
+        newBox.className = "news-container";
+        document.body.appendChild(newBox);
 
         //HERE is to fetch the social domaninance from santiment
         //then overlay it with the btc chart
@@ -435,6 +573,7 @@
             const text = "I bet $BTC hits $110k before it retests $76.5k.\n Y? The Fed is going from QT to QE for treasuries. And tariffs don’t matter cause “transitory inflation”. JAYPOW told me so.\n I’ll expound on that in my next essay, that’s the TLDR for your TikTok peanut brain."
             const timestamp = "2025-03-24T02:42:09.000Z";
             const profile = 'https://pbs.twimg.com/profile_images/1860844599088189440/dH1AnJGk_normal.jpg';
+            const tweetMarker = [];
             tweetData.push ({
                 username: name,
                 text: text,
@@ -448,27 +587,60 @@
                 text: "testText",
                 timestamp: "2025-04-14T02:42:09.000Z",
                 tweetID: '1904000755381760050'
-            })
-           
+            });
 
             const date = new Date(timestamp).toISOString().split("T")[0];
-            let twitMarker = [{
-                time:date,
-                position: 'belowBar', 
-                color: '#1a4670', // Twitter blue
-                shape: 'circle', 
-                size: 2,
-                text: 'Analysis', 
-            },
-            {
-                time: { year: 2025, month: 4, day: 14},
-                position: 'belowBar', 
-                color: '#1a4670', // Twitter blue
-                shape: 'circle', 
-                size: 2,
-                text: 'Analysis', 
-            }];
-            setMarkers(twitMarker);
+            let markertime;
+
+            tweetData.forEach(tweet => {
+                const d = new Date(tweet.timestamp);
+                const date1 = new Date(tweet.timestamp).toISOString().split("T")[0];
+                console.log(d);
+                if (time === '1d') {
+                    // Use exact date
+                    markertime = date1;
+                } else if (time === '1w') {
+                    // Align to start of the week (Sunday or Monday depending on your chart)
+                    const day = d.getDay(); // 0 = Sunday
+                    const diff = d.getDate() - day;
+                    d.setDate(diff);
+                    d.setHours(0, 0, 0, 0);
+                    // if(ma)
+                    markertime = Math.floor(d.getTime() / 1000);
+                } else {
+                    markertime = date1;
+                }
+                console.log(markertime);
+                tweetMarker.push({
+                    time:markertime,
+                    position: 'belowBar', 
+                    color: '#1a4670', // Twitter blue
+                    shape: 'circle', 
+                    size: 2,
+                    text: 'Analysis', 
+                })
+            })
+            
+            
+            
+            console.log(date);
+            // tweetMarker = [{
+            //     time:date,
+            //     position: 'belowBar', 
+            //     color: '#1a4670', // Twitter blue
+            //     shape: 'circle', 
+            //     size: 2,
+            //     text: 'Analysis', 
+            // },
+            // {
+            //     time: { year: 2025, month: 4, day: 14},
+            //     position: 'belowBar', 
+            //     color: '#1a4670', // Twitter blue
+            //     shape: 'circle', 
+            //     size: 2,
+            //     text: 'Analysis', 
+            // }];
+            setMarkers(tweetMarker);
 
             
             tweetBoxVisible = false;
@@ -491,6 +663,7 @@
                             newBox.style.display = "none";
                             newsBoxVisible = false;
                         }
+                        console.log("Im here");
                         tweetBox.innerHTML = "";
                         tweetBox.style.left = `${x + 100}px`;
                         tweetBox.style.top = `${y - tweetBox.offsetHeight - 15}px`;
@@ -499,7 +672,7 @@
                             // check if the mouse's time match with the tweet's time from each tweet
                             // if yes, put text and show tweetBox, if no just skip
                             if(isSameDate(clickedTime, tweetTime)){ 
-                                // console.log(tweet.username);
+                                console.log(tweet.username);
                                 tweetBox.innerHTML += `
                                 <div class="tweet">
                                     <img src="${tweet.profile}" style="width:30px; height:30px; border-radius:50%;" onerror="this.onerror=null; this.src='default-profile.png';"/>
@@ -577,7 +750,7 @@
                                 // Example filter for important events
                                 const keywords = [
                                     "inflation", "interest rate", "GDP", "recession", "subsidies", 
-                                    "stimulus", "default", "bankruptcy", "merger", "acquisition", "bitcoin falls"
+                                    "stimulus", "default", "bankruptcy", "merger", "acquisition", "bitcoin falls", "predicted"
                                 ];
                                 allNewsData = allNewsData.filter(item => item && item.title);
                                 // console.log(allNewsData);
@@ -588,7 +761,7 @@
                                         article.title.toLowerCase().includes(keyword)
                                     );
                                 });
-                                console.log(importantEvents);
+                                // console.log(importantEvents);
                                 const chartMarkers = [];          
                                 //group articles based on published date                 
                                 const groupedArticles1 = importantEvents.reduce((acc, article) => {
@@ -605,7 +778,7 @@
                                                         
                                     return acc;
                                 }, {});
-                                console.log(groupedArticles1);
+                                // console.log(groupedArticles1);
 
                                 // create markers for each date
                                 Object.keys(groupedArticles1).forEach(date => {
@@ -621,77 +794,28 @@
                                         const diff = d.getDate() - day;
                                         d.setDate(diff);
                                         d.setHours(0, 0, 0, 0);
+                                        // if(ma)
                                         markertime = Math.floor(d.getTime() / 1000);
                                     } else {
                                         markertime = date;
                                     }
+                                    const isDuplicate = chartMarkers.some(marker => marker.time === markertime);
                                     // Create a marker for each day (you can adjust this based on your charting library)
-                                    chartMarkers.push({
+                                    if (!isDuplicate) {
+                                        chartMarkers.push({
                                         time: markertime,
                                         position: "aboveBar",
                                         color: '#f74d4d',
                                         shape: "circle",
-                                        text: "News Update",
+                                        text: "News",
                                         size:2 
                                     });
+                                    }
                                 });
-
+                                // console.log(chartMarkers);
                                 setMarkers(chartMarkers); 
                                 
-                                newsBoxVisible = false;
-                                // chart.subscribeClick(function (param) {
-                                //     if (!param || !param.time) return;
-                                    
-                                //     const clickedTime = param.time;
-                                //     const clickedDate = new Date(clickedTime * 1000);  // Keep it as a Date object
-                                //     console.log("Clicked Date Object:", clickedDate);
-
-                                //     const formattedDate = `${clickedDate.getFullYear()}-${String(clickedDate.getMonth() + 1).padStart(2, '0')}-${String(clickedDate.getDate()).padStart(2, '0')}`; // Format it only when needed
-                                //     console.log("Clicked Date String:", formattedDate);
-                                    
-                                //     // Check if there's any article for this clicked date
-                                //     articles = groupedArticles1[formattedDate];  // Ensure this matches the format in groupedArticles
-                                //     console.log(articles);
-                                //     // Check if articles exist for the clicked date
-                                //     if (articles && articles.length > 0) {
-                                //         const x = param.point.x;
-                                //         const y = param.point.y;
-                                        
-                                //         // Display the articles if available
-                                //         if (newsBoxVisible) {
-                                //             newBox.style.display = "none";
-                                //             newsBoxVisible = false;
-                                //         }else{
-                                            
-                                //             if(tweetBoxVisible){
-                                //                 tweetBox.style.display = "none";
-                                //                 tweetBoxVisible = false;
-                                //             }
-
-                                //             newBox.innerHTML = ""; // Clear previous content
-                                //             newBox.style.left = `${x + 100}px`;
-                                //             newBox.style.top = `${y - newBox.offsetHeight - 15}px`;
-                                            
-                                //             articles.forEach(article => {
-                                //                 newBox.innerHTML += `
-                                //                     <div class="news-article">
-                                //                         <b>${article.title}</b><br>
-                                //                         <small>${article.publishedAt}</small>
-                                //                         <small><a href = "${article.url}">${article.url}</a></small><br><br>
-                                //                         <hr>
-                                //                     </div>
-                                //                 `;
-                                //             });
-
-                                //             newBox.style.display = "block";
-                                //             newsBoxVisible = true;
-                                //         }
-                                //     } else {
-                                //         console.log("No articles found for date:", formattedDate);
-                                //     }
-                                // });
-
-                                
+                                newsBoxVisible = false;        
                                 //iE = w/o taking the fund rate
                                 //eD = take event start with date based on fund rate
                                 //HERE is to set the markers of the events filtered
@@ -702,7 +826,7 @@
                                     const clickedTime = param.time;
                                     const clickedDate = new Date(clickedTime * 1000);
 
-                                    console.log("Clicked Date Object:", clickedDate);
+                                    // console.log("Clicked Date Object:", clickedDate);
                                     const articlesToShow = [];
 
                                     // Loop through all groupedArticles1 to check within time ranges
@@ -733,7 +857,7 @@
                                         if (match) {
                                             articlesToShow.push(...groupedArticles1[dateKey]);
                                         }
-                                        console.log(articlesToShow);
+                                        // console.log(articlesToShow);
                                     }
 
                                     if (articlesToShow.length > 0) {
@@ -818,6 +942,7 @@
             })
             .catch(err => console.error("Failed to fetch news:", err));
         }
+        
         function getStartOfWeek(date) {
             const d = new Date(date);
             const day = d.getDay();
@@ -1296,7 +1421,7 @@
         async function fetchSupertrend() {
             // Clear old Supertrend series
 
-            const API_URL = "http://localhost:5000/supertrend"; // Fetch from local server
+            const API_URL = "https://chart-backend-py.onrender.com/supertrend"; // Fetch from local server
             
             try {
                 let response = await fetch(API_URL);
@@ -1418,7 +1543,7 @@
             }
         }
 
-        let count = 0;
+     
         async function fetchSupertrend1w(){
             count+=1;
             console.log(count);
@@ -1481,6 +1606,37 @@
             }
         }
 
+        async function handleAnalysisToggle(){
+                    if (m2Series) {
+                        console.log('Removing M2 series');
+                        chart.removeSeries(m2Series);
+                        m2Series = null;
+                        console.log(m2Series);
+                    }
+                    if (mvrvSeries) {
+                        console.log('Removing MVRV series');
+                        chart.removeSeries(mvrvSeries);  
+                        mvrvSeries = null;
+                        console.log(mvrvSeries);
+                    }
+                    
+                    // console.log("Ema period", selectedPeriod);
+                    if (!(document.getElementById('analysis-select')).value) return;  // If "None" is selected, do nothing
+                    switch ((document.getElementById('analysis-select')).value) {
+                        case "m2":
+                            await fetchM2();
+                            break;
+                        case "mvrv":
+                            await fetchMVRV();
+                            break;
+                        default:
+                            // Optionally handle unknown values
+                            console.warn("Unknown metric selected:", (document.getElementById('analysis-select')).value);
+                            break;
+                    }
+                
+        }
+
         function handleSupertrendToggle() {
             if ((document.getElementById('super-checkbox')).checked) {
                 if (time === '1d') fetchSupertrend();
@@ -1493,263 +1649,25 @@
             }
         }
 
-
-        function addSupertrend(data){
-            
-            const period = 3; // average true range
-            const multiplier = 3; // adjust sensitivity
-            let atrValue = 0;
-
-            // Step 1: Calculate True Range (TR) and Average True Range (ATR)
-            const tr = [];
-            for (let i = 1; i < data.length; i++) {
-                const currentHigh = data[i].high;
-                const currentLow = data[i].low;
-                const prevClose = data[i - 1].close;
-
-                const highLow = currentHigh - currentLow;
-                const highClose = Math.abs(currentHigh - prevClose);
-                const lowClose = Math.abs(currentLow - prevClose);
-                const trueRange = Math.max(highLow, highClose, lowClose);
-                tr.push(trueRange);
-            }
-
-            // Step 2: Calculate ATR
-            const atr = [];
-            let sum = tr.slice(0, period).reduce((acc, val) => acc + val, 0);
-            atr.push(sum / period);
-
-            for (let i = period; i < tr.length; i++) {
-                const prevATR = atr[atr.length - 1];
-                const currentATR = (prevATR * (period - 1) + tr[i]) / period;
-                atr.push(currentATR);
-            }
-
-            // Step 3: Calculate Upper and Lower Bands
-            let baseUp = [];
-            let baseDown = [];
-            for (let i = 0; i < period - 1; i++) {
-                baseUp.push(NaN);
-                baseDown.push(NaN);
-            }
-
-            for (let i = period - 1; i < data.length; i++) {
-                const atrIndex = i - (period - 1); // shift ATR into alignment
-                const hl2 = (data[i].high + data[i].low) / 2;
-                const expectedATR = atr[atrIndex];
-
-                if (expectedATR !== undefined && !isNaN(expectedATR)) {
-                    const upper = hl2 + (multiplier * expectedATR);
-                    const lower = hl2 - (multiplier * expectedATR);
-                    console.log(`i=${i}, atrIndex=${atrIndex}, HL2=${hl2.toFixed(2)}, ATR=${expectedATR.toFixed(2)}, baseUp=${upper.toFixed(2)}, baseDown=${lower.toFixed(2)}`);
-                }
-                if (atr[atrIndex] !== undefined && !isNaN(atr[atrIndex])) {
-                    baseUp.push(hl2 + (multiplier * atr[atrIndex]));
-                    baseDown.push(hl2 - (multiplier * atr[atrIndex]));
-                } else {
-                    baseUp.push(NaN);
-                    baseDown.push(NaN);
-                }
-            }
-            console.log("First ATR should align with data at i = period - 1");
-            console.log("data index:", period - 1, "=> data[period-1].hl2 =", (data[period - 1].high + data[period - 1].low) / 2);
-            console.log("atr[0] =", atr[0]);
-
-            // Step 4: Calculate Final Upper and Lower Bands (fiUp, fiDown)
-            let fiUp = [];
-            let fiDown = [];
-            let prevFiUp = 0;
-            let prevFiDown = 0;
-            for (let i = 0; i < data.length; i++) {
-                if (isNaN(baseUp[i])) {
-                    fiUp.push(NaN);
-                } else if (i === 0) {
-                    fiUp.push(baseUp[i]);
-                    prevFiUp = baseUp[i];
-                } else {
-                    fiUp.push(baseUp[i] < prevFiUp || data[i - 1].close > prevFiUp ? baseUp[i] : prevFiUp);
-                    prevFiUp = fiUp[i];
-                }
-
-                if (isNaN(baseDown[i])) {
-                    fiDown.push(NaN);
-                } else if (i === 0) {
-                    fiDown.push(baseDown[i]);
-                    prevFiDown = baseDown[i];
-                } else {
-                    fiDown.push(baseDown[i] > prevFiDown || data[i - 1].close < prevFiDown ? baseDown[i] : prevFiDown);
-                    prevFiDown = fiDown[i];
-                }
-            }
-
-            // Step 5: Calculate Supertrend
-            let st = [];
-            let prevSt = NaN;
-
-            for (let i = 0; i < data.length; i++) {
-                if (i < period) {
-                    st.push(NaN);
-                    continue;
-                }
-
-                let nowSt = 0;
-
-                // If previous supertrend is not set
-                if (isNaN(prevSt)) {
-                    nowSt = data[i].close <= fiUp[i] ? fiUp[i] : fiDown[i];
-                } else if (prevSt === fiUp[i - 1] && data[i].close <= fiUp[i]) {
-                    nowSt = fiUp[i]; // Continue uptrend if close is below fiUp
-                } else if (prevSt === fiUp[i - 1] && data[i].close > fiUp[i]) {
-                    nowSt = fiDown[i]; // Switch to downtrend if close is above fiUp
-                } else if (prevSt === fiDown[i - 1] && data[i].close >= fiDown[i]) {
-                    nowSt = fiDown[i]; // Continue downtrend if close is above fiDown
-                } else if (prevSt === fiDown[i - 1] && data[i].close < fiDown[i]) {
-                    nowSt = fiUp[i]; // Switch to uptrend if close is below fiDown
-                }
-
-                st.push(nowSt);
-                prevSt = nowSt;
-            }
-
-
-            // Step 6: Final Output and Alignment Check
-            let up = [];
-            let down = [];
-            let indexUp = [];
-            let indexDown = [];
-            for (let i = 0; i < data.length; i++) {
-                if (isNaN(st[i])) {
-                    up.push(st[i]);
-                    down.push(st[i]);
-                    continue; // Skip further logic for NaN st[i]
-                }
-
-                if (data[i].close < st[i]) {
-                    // Downtrend
-                    down.push(st[i]);
-                    up.push(NaN);
-                    indexDown.push(i);
-                } else {
-                    // Uptrend
-                    down.push(NaN);
-                    up.push(st[i]);
-                    indexUp.push(i);
-                }
-
-                console.log(`i=${i}, Close=${data[i].close}, fiUp=${fiUp[i]}, fiDown=${fiDown[i]}, st=${st[i]}, up=${up[i]}, down=${down[i]}`);
-            }
-
-            console.log(data.length, atr.length, baseUp.length, fiUp.length, st.length);
-
-
-            // console.log(up);
-            // console.log(down);
-            // // Step 3: Calculate Supertrend
-            // let supertrend = [];
-            // let colors = [];
-            // supertrend.push(upperBand[0]); // The first supertrend is the first upper band value
-            // colors.push('green');
-            // // console.log(supertrend);
-            // for (let i = 1; i < data.length; i++) {
-            //     const currentClose = data[i].close;
-            //     const previousSupertrend = supertrend[i - 1];
-
-            //     if (currentClose > previousSupertrend) {
-            //         // If the close is above the previous Supertrend, set to upper band
-            //         supertrend.push(Math.max(upperBand[i], previousSupertrend));
-            //         colors.push('green');  // Bullish, use green
-            //     } else {
-            //         // If the close is below the previous Supertrend, set to lower band
-            //         supertrend.push(Math.min(lowerBand[i], previousSupertrend));
-            //         colors.push('red');  // Bearish, use red
-            //     }
-            // }
-
-            // supertrendSeries = chart.addLineSeries({
-            //     color: 'red', // Default color (it will be updated dynamically)
-            //     lineWidth: 2
-            // });
-            
-            // const supertrendData = supertrend.map((st, index) => {
-            //     return {
-            //         time: data[index].time,  // Human-readable date
-            //         value: st                      // Supertrend value
-            //     };
-            // });
-            // console.log(supertrendData);
-            // supertrendSeries.setData(supertrendData);
-
-            let isUptrend = null;
-            let currentSegment = [];
-            const supertrendSegments = [];
-
-            // Loop through your data to build trend segments
-            for (let i = 0; i < data.length; i++) {
-                const time = data[i].time;
-                const upValue = up[i];
-                const downValue = down[i];
-
-                if (!isNaN(upValue)) {
-                    if (isUptrend !== true) {
-                        if (currentSegment.length) {
-                            supertrendSegments.push({
-                                data: currentSegment,
-                                color: isUptrend === false ? 'red' : 'gray'
-                            });
-                        }
-                        currentSegment = [];
-                        isUptrend = true;
+        function handleFVGToggle() {
+            if ((document.getElementById('fvg-checkbox')).checked) {
+                detectFVG(chartData);
+            } else {
+                
+                fvgSeriesList.forEach(series => {
+                    try {
+                        chart.removeSeries(series);
+                    } catch (e) {
+                        console.warn('Failed to remove series:', e);
                     }
-                    currentSegment.push({ time: time, value: upValue });
-                } else if (!isNaN(downValue)) {
-                    if (isUptrend !== false) {
-                        if (currentSegment.length) {
-                            supertrendSegments.push({
-                                data: currentSegment,
-                                color: isUptrend === true ? 'green' : 'gray'
-                            });
-                        }
-                        currentSegment = [];
-                        isUptrend = false;
-                    }
-                    currentSegment.push({ time: time, value: downValue });
-                } else {
-                    // Break line if no valid value
-                    if (currentSegment.length) {
-                        supertrendSegments.push({
-                            data: currentSegment,
-                            color: isUptrend ? 'green' : 'red'
-                        });
-                        currentSegment = [];
-                    }
-                    isUptrend = null;
-                }
-            }
-
-            // Push any remaining segment
-            if (currentSegment.length) {
-                supertrendSegments.push({
-                    data: currentSegment,
-                    color: isUptrend ? 'green' : 'red'
                 });
+                fvgSeriesList = [];
+                fvgMsg = [];
+                
+            
             }
-
-            // Now create line series for each segment
-            // supertrendSegments.forEach(segment => {
-            //     let lineSeries = chart.addLineSeries({
-            //         color: segment.color,
-            //         lineWidth: 2,
-            //         priceLineVisible: false,
-            //         lastValueVisible: false
-            //     });
-            //     lineSeries.setData(segment.data);
-            // });
-
-            return supertrendSegments;
-
-
         }
- 
+
         // HERE is to create SMA checkboxes
         function createSMACheckboxes(chartData) {
             const smaContainer = document.getElementById("sma-options");
@@ -2177,16 +2095,187 @@
             return divergences;
         }
 
+        function wyckoff(){
+            // if(chartData){
+            //     console.log("Yes");
+            // }else{
+            //     console.log("No");
+            // }
+
+            const volumeThreshold = 2;
+            const averageVolume = chartData.reduce((acc, bar) => acc + bar.volume, 0) / chartData.length;
+            const markers = [];
+            
+            for (let i = 2; i < chartData.length - 1; i++) {
+                const prev = chartData[i - 1];
+                const curr = chartData[i];
+                const next = chartData[i + 1];
+
+                // Heuristic: Selling Climax
+                if (
+                    curr.close < curr.open &&
+                    curr.volume > averageVolume * volumeThreshold &&
+                    curr.low < prev.low && curr.low < next.low &&
+                    (curr.low < prev.low * 0.99)
+                ) {
+                    markers.push({
+                        time: curr.time,
+                        position: 'belowBar',
+                        color: 'red',
+                        shape: 'arrowDown',
+                        text: 'SC',
+                    });
+                }
+
+                // Heuristic: Automatic Rally (next bar with strong up move)
+                if (
+                    prev.close < prev.open &&
+                    curr.close > curr.open &&
+                    curr.volume > averageVolume &&
+                    curr.close > prev.close + (prev.close * 0.03)
+                ) {
+                    markers.push({
+                        time: curr.time,
+                        position: 'aboveBar',
+                        color: 'green',
+                        shape: 'arrowUp',
+                        text: 'AR',
+                    });
+                }
+            }
+            setMarkers(markers);
+
+        }
+
+        function detectFVG(chartData) {
+
+            for (let i = 0; i < chartData.length - 2; i++) {
+                const candle1 = chartData[i];
+                const candle2 = chartData[i + 1]; // center candle
+                const candle3 = chartData[i + 2];
+                // if(i === 0)
+                //     console.log(candle1,candle2, candle3);
+
+                const date1 = new Date(candle1.time * 1000); // Convert to milliseconds
+                const formattedDate1 = date1.toISOString().split('T')[0]; // "YYYY-MM-DD"
+                const date3 = new Date(candle3.time * 1000); // Convert to milliseconds
+                const formattedDate3 = date3.toISOString().split('T')[0]; // "YYYY-MM-DD"
+                // BULLISH FVG (gap between candle1 high and candle3 low)
+                if (
+                    candle1 && candle3 &&
+                    candle1.high != null && candle1.time != null &&
+                    candle3.low != null && candle3.time != null
+                ) {
+                    if (candle3.low > candle1.high) {
+                        const value = (candle3.low - candle1.high).toFixed(2);
+
+                        const color = 'rgba(0, 200, 0, 1)'; // green
+
+                        // Bottom line
+                        const bottomFVG = chart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+                        bottomFVG.setData([
+                            { time: candle1.time, value: candle3.low },
+                            { time: candle3.time, value: candle3.low }
+                        ]);
+
+                        // Top line
+                        const topFVG = chart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+                        topFVG.setData([
+                            { time: candle1.time, value: candle1.high },
+                            { time: candle3.time, value: candle1.high }
+                        ]);
+                        // Left vertical line
+                        // const left = chart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false});
+                        // left.setData([
+                        //     { time: candle1.time, value: candle1.high },
+                        //     { time: candle1.time + tinyOffset, value: candle3.low }
+                        // ]);
+
+                        // // Right vertical line
+                        // const right = chart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+                        // right.setData([
+                        //     { time: candle3.time, value: candle1.high },
+                        //     { time: candle3.time, value: candle3.low }
+                        // ]);
+
+                        fvgMsg.push({
+                            text: `Bullish Fair Value Gap: ${candle1.high} → ${candle3.low} ($${value}) <br>From ${formattedDate1} to ${formattedDate3}`,
+                            type: 'bullish',
+                            time: candle2.time
+                        });
+
+                        fvgSeriesList.push(bottomFVG, topFVG); // store all series
+                    }
+
+                    // Bearish FVG (gap between candle3 high and candle1 low)
+                    if (candle3.high < candle1.low) {
+                        const value = (candle1.low - candle3.high).toFixed(2);
+
+                        const color = 'rgba(200, 0, 0, 1)'; // red
+
+                        // Bottom line
+                        const bottom = chart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+                        bottom.setData([
+                            { time: candle1.time, value: candle3.high },
+                            { time: candle3.time, value: candle3.high }
+                        ]);
+
+                        // Top line
+                        const top = chart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+                        top.setData([
+                            { time: candle1.time, value: candle1.low },
+                            { time: candle3.time, value: candle1.low }
+                        ]);
+
+                        // // Left vertical line
+                        // const left = chart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+                        // left.setData([
+                        //     { time: candle1.time, value: candle1.low },
+                        //     { time: candle1.time, value: candle3.high }
+                        // ]);
+
+                        // // Right vertical line
+                        // const right = chart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+                        // right.setData([
+                        //     { time: candle3.time, value: candle1.low },
+                        //     { time: candle3.time, value: candle3.high }
+                        // ]);
+
+                        fvgMsg.push({
+                            text: `Bearish Fair Value Gap: ${candle1.low} → ${candle3.high} ($${value}) <br>From ${formattedDate1} to ${formattedDate3}`,
+                            type: 'bearish',
+                            time: candle2.time
+                        });
+
+                        fvgSeriesList.push(bottom, top); // store all series
+                    }
+                } else {
+                    console.warn("Missing or invalid candle data, skipping FVG series");
+                }
+            }
+        }
+
+       
         // ** Extra features : markers and borders ** //
 
         function clearAllIndicators() {
             const bbCheckbox = document.getElementById('bb-select');
             const rsiCheckbox = document.getElementById('rsi-checkbox');
-            const sentCheckbox = document.getElementById('sent-checkbox');
+            // const sentCheckbox = document.getElementById('sent-checkbox');
             let smaSelect = document.getElementById('sma-select');
             let emaSelect = document.getElementById('ema-select');
             let analysisSelect = document.getElementById('analysis-select');
             let superSelect = document.getElementById('super-checkbox');
+            let fvgSelect = document.getElementById('fvg-checkbox');
+
+            // clear chart first if any
+            // if (candleSeries!=null) {
+            //     // console.log("Im not null");
+            //     chart.removeSeries(candleSeries);
+            //     // console.log(candleSeries);
+            //     candleSeries = null;
+            // }
+
             // 1. remove EMA lines everytime the chart is switched
             emaSelect.value = ""; //clear the list for EMA
             if (emaSeries) { chart.removeSeries(emaSeries); emaSeries = null; }
@@ -2227,10 +2316,10 @@
                 rsiSeries = null;
             }
 
-            sentCheckbox.checked = false;
-            if(sentimentSeries){
-                removeSentimentLine();
-            }
+            // sentCheckbox.checked = false;
+            // if(sentimentSeries){
+            //     removeSentimentLine();
+            // }
                 // markers = [];
 
             // 6. remove ichimoku line and set checkbox to false
@@ -2275,6 +2364,21 @@
 
             supertrendSegments = [];            // Set to empty array, not null
 
+            // 11. clear fvg
+            // console.log(fvgSeriesList);
+            fvgSelect.checked = false;
+            if (fvgSeriesList){
+                fvgSeriesList.forEach(series => {
+                    try {
+                        chart.removeSeries(series);
+                    } catch (e) {
+                        console.warn('Failed to remove series:', e);
+                    }
+                });
+                fvgSeriesList = [];
+                fvgMsg = [];
+                
+            }
             
         }
 
@@ -2290,6 +2394,11 @@
             })
 
            
+        }
+
+        function clearMarkers(){
+            // markers = [];
+            candleSeries.setMarkers([]);
         }
 
         //HERE is to shorten the event title into suitable short label
@@ -2415,12 +2524,12 @@
             return d1.getTime() === d2.getTime();
         }
 
+        let count =0;
         async function loadChart(timeframe) {
             const binanceTimeframe = timeframe;
             document.getElementById("smaLegend").innerHTML = "";
             updateLegendBorder();
             time = timeframe;
-            
             //clear chartData if there is any to ensure it contains the latest data
             chartData = [];
             // if using binanceAPI
@@ -2428,23 +2537,22 @@
             // lineData = await fetchLineData(binanceTimeframe);
             // if using alphaVantage
             // chartData = await fetchData();
-            // console.log("line 761", chartData);
             const bbCheckbox = document.getElementById('bb-select');
             const rsiCheckbox = document.getElementById('rsi-checkbox');
-            const sentCheckbox = document.getElementById('sent-checkbox');
+            // const sentCheckbox = document.getElementById('sent-checkbox');
             let smaSelect = document.getElementById('sma-select');
             let emaSelect = document.getElementById('ema-select');
+            let eventSelect = document.getElementById('event-select');
             let analysisSelect = document.getElementById('analysis-select');
             let superSelect = document.getElementById('super-checkbox');
+            let fvgSelect = document.getElementById('fvg-checkbox');
             // console.log("Current timeframe:", timeframe);
     
             if (candleSeries!=null) {
-                // console.log("Im not null");
                 chart.removeSeries(candleSeries);
-                // console.log(candleSeries);
+                
                 candleSeries = null;
             }
-            
             if (chartData) {
                 const latestCandle = chartData[chartData.length - 1];
                 console.log("Loading chart for:", timeframe);
@@ -2490,6 +2598,9 @@
                 // detectMVRVandSMA();
                 createIchimokuCheckboxes(chartData);
                 fetchTwitter();
+                // wyckoff();
+                // clearMarkers();
+                // detectFVG(chartData);
                 // const result = calculateIchimoku(chartData);
                 // console.log(result);
                 // Listen for changes in the checkbox to toggle sentiment line
@@ -2498,13 +2609,12 @@
                 // create a separate chart for RSI
                 if (!rsiChart) {
                     rsiChart = LightweightCharts.createChart(document.getElementById('rsi-container'), {
-                        width: document.getElementById('rsi-container').clientWidth,
-                        height: 200,
+                        // width: document.getElementById('rsi-container').clientWidth,
+                        // height: 200,
                         layout: { backgroundColor: '#ffffff', textColor: '#000' },
                         grid: { vertLines: { color: '#eeeeee' }, horzLines: { color: '#eeeeee' } }
                     });
                 }
-
                 
                 // fetchMacroData();
                 emaSelect.addEventListener('change', function () {
@@ -2519,6 +2629,21 @@
                     emaSeries.setData(emaData);
                     //updateLegend("ema", selectedPeriod, "#73c769"); 
                 });
+                // eventSelect.addEventListener('change', function () {
+                //     if (tweetData){
+                //         tweetData = [];
+                //     };  
+                //     const choice = this.value;
+                //     if (choice === "event"){
+                //         fetchNew();
+                //     } else if (choice === 'tweet'){
+                //         fetchTwitter();
+                //     }
+                    
+                    
+                //     //updateLegend("ema", selectedPeriod, "#73c769"); 
+                // });
+
                 // add event listener for bb
                 bbCheckbox.addEventListener('change', function () {
                     if (this.checked) {
@@ -2544,34 +2669,9 @@
                         updateLegend("bb", "None", "#8c50cc"); 
                     }
                 });
-
-                analysisSelect.addEventListener('change', async function () {
-                    if (m2Series) {
-                        chart.removeSeries(m2Series);
-                        m2Series = null;
-                    }
-                    if (mvrvSeries) {
-                        chart.removeSeries(mvrvSeries);  
-                        mvrvSeries = null;
-                    }
-                    
-                    // console.log("Ema period", selectedPeriod);
-                    if (!this.value) return;  // If "None" is selected, do nothing
-                    switch (this.value) {
-                        case "m2":
-                            await fetchM2();
-                            break;
-                        case "mvrv":
-                            await fetchMVRV();
-                            break;
-                        default:
-                            // Optionally handle unknown values
-                            console.warn("Unknown metric selected:", this.value);
-                            break;
-                    }
-                });
-
+                analysisSelect.addEventListener('change', handleAnalysisToggle);
                 superSelect.addEventListener('change',handleSupertrendToggle);
+                fvgSelect.addEventListener('change',handleFVGToggle);
                 // add event listener for rsi
                 rsiCheckbox.addEventListener('change', function () {
                     if (!rsiChart) return;
@@ -2667,8 +2767,7 @@
                 } else if (timeframe === '1w') {
                     timeC = "Weekly (1w)";
                 }
-                document.getElementById("chart-label").innerText = `Current Chart: ${timeC}`;
-                         
+                document.getElementById("chart-label").innerText = `BTC ${timeC}`;
             }
         }
 
@@ -2694,6 +2793,7 @@
                 rightPriceScale: { visible: true, borderColor: '#d1d4dc' }, // BTC on right axis
                 leftPriceScale: { visible: true, borderColor: '#d1d4dc' }   // M2 on left axis
             });
+            
             // window.addEventListener('resize', ()=>{
             //     const width = chartContainer.clientWidth;
             //     const height = chartContainer.clientHeight;
@@ -2701,10 +2801,6 @@
             // })
             // Add BTC Candlestick Series (Right Axis)
             candleSeries = chart.addCandlestickSeries({ priceScaleId: 'right' });
-
-            
-
-            
 
             lineSeries = chart.addLineSeries({
                 color: 'blue', // Set the color for the line
@@ -2728,6 +2824,7 @@
             // await fetchM2();
             // await fetchMaxSentData('1d');
 
+            // console.log(chartData);
             // Create the tooltip div
             const tooltip = document.createElement("div");
             tooltip.style.position = "absolute";
@@ -2911,6 +3008,16 @@
                     }
                 }
 
+                if(fvgMsg){
+                    const hoveredTime = param.time;
+                    const alert = fvgMsg.find(item => item.time === hoveredTime);
+
+                    if (alert) {
+                        const color = alert.type === "bullish" ? "#a19528" : "#cc0000";
+                        text += `<b style="color: ${color}">${alert.text}</b><br>`;
+                    }
+                }
+
                 if (!param.time) return;
                 if (text !== "") {
                     tooltip.innerHTML = text;
@@ -2924,10 +3031,17 @@
             let tweetBoxVisible = false;
             
             // click function to make tooltip occur
-            
-
-
         };
+        const popup = document.getElementById("indicator-popup");
+        const button = document.getElementById("open-indicator-menu");
+
+        // button.addEventListener("click", () => {
+        //     popup.classList.toggle("hidden");
+        // });
+        button.addEventListener("click", function () {
+            const popup = document.getElementById("indicator-popup");
+            popup.classList.toggle("hidden");
+        });
     </script>
 </body>
 </html>
