@@ -3,14 +3,18 @@ from flask_cors import CORS # type: ignore
 import pandas as pd
 import pandas_ta as ta
 import os
+from pathlib import Path
+import json
 
 app = Flask(__name__)
 CORS(app)
+
 @app.route('/supertrend')
 def get_supertrend_daily():
     # Sample OHLCV DataFrame
-    df = pd.read_csv(r'C:\Users\User\Desktop\chart\backend\ohlcv.csv')  
-
+    # df = pd.read_csv(r'C:\Users\User\Desktop\chart\backend\ohlcv.csv')  
+    file_path = os.path.join(os.path.dirname(__file__), 'ohlcv.csv')
+    df = pd.read_csv(file_path)
     # Calculate Supertrend with period=10 and multiplier=3
     supertrend = ta.supertrend(high=df['high'], low=df['low'], close=df['close'], length=10, multiplier=3)
 
@@ -27,7 +31,8 @@ def get_supertrend_daily():
 @app.route('/supertrend4h')
 def get_supertrend_4h():
     # Sample OHLCV DataFrame
-    df = pd.read_csv(r'C:\Users\User\Desktop\chart\backend\4hr.csv')  
+    file_path = os.path.join(os.path.dirname(__file__), '4hr.csv')
+    df = pd.read_csv(file_path)  
 
     # Calculate Supertrend with period=10 and multiplier=3
     supertrend = ta.supertrend(high=df['high'], low=df['low'], close=df['close'], length=10, multiplier=3)
@@ -45,7 +50,8 @@ def get_supertrend_4h():
 @app.route('/supertrend1w')
 def get_supertrend_weekly():
     # Sample OHLCV DataFrame
-    df = pd.read_csv(r'C:\Users\User\Desktop\chart\backend\weekly.csv')  
+    file_path = os.path.join(os.path.dirname(__file__), 'weekly.csv')
+    df = pd.read_csv(file_path)  
 
     # Calculate Supertrend with period=10 and multiplier=3
     supertrend = ta.supertrend(high=df['high'], low=df['low'], close=df['close'], length=10, multiplier=3)
