@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS # type: ignore
 import pandas as pd
 import pandas_ta as ta
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -59,10 +60,34 @@ def get_supertrend_weekly():
 
     return jsonify(result.to_dict(orient='records'))
 
+@app.route('/off-news')
+def get_news():
+    news_items = []
+    try:
+        with open("rss_feed.txt", "r", encoding="utf-8") as file:
+            item = {}
+            for line in file:
+                line = line.strip()
+                if line.startswith("Title:"):
+                    item["title"] = line.replace("Title: ", "")
+                elif line.startswith("Published:"):
+                    item["published"] = line.replace("Published: ", "")
+                elif line.startswith("Link:"):
+                    item["link"] = line.replace("Link: ", "")
+                elif line == "---------":
+                    if item:
+                        news_items.append(item)
+                        item = {}
+    except FileNotFoundError:
+        return jsonify({"error": "rss_feed.txt not found"}), 404
+
+    return jsonify(news_items)
+
 # Result includes columns like:
 # - SUPERT_10_3.0 (Supertrend value)
 # - SUPERTd_10_3.0 (Direction: 1 for uptrend, -1 for downtrend)
 # print(df.tail(12))
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
