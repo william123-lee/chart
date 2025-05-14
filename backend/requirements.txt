@@ -2,5 +2,5 @@ Flask==3.1.0
 flask-cors==5.0.1
 pandas==2.2.3
 pandas_ta==0.3.14b0
-numpy==1.23.0
+numpy==1.23.2
 
